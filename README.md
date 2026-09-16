@@ -1,32 +1,39 @@
 # MyFirstApi
 
-![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&logo=dotnet)
-![macOS](https://img.shields.io/badge/macOS-Supported-000000?style=flat&logo=apple)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
-
 ## Overview
-**MyFirstApi** is a robust, lightweight RESTful Web API built with C# and .NET Core. Designed with cross-platform development in mind, it provides a foundational architecture for managing data entities (such as Products and Weather Forecasts) and seamlessly integrates with containerized databases like MySQL and PostgreSQL via Docker.
-
-This project is tailored to provide a smooth development experience on macOS environments, leveraging modern tooling and best practices.
+**MyFirstApi** is a RESTful Web API built with ASP.NET Core[cite: 2]. The project is structured to ensure maintainability and clean architecture, providing core endpoints for product management and secure authentication[cite: 2].
 
 ## Features
-- **.NET Core Web API**: Fast, reliable, and scalable backend architecture.
-- **RESTful Endpoints**: Standardized CRUD operations (e.g., managing products).
-- **Containerized Database Integration**: Ready-to-use instructions for Docker-based MySQL or PostgreSQL instances.
-- **macOS Optimized**: Development workflows tailored for Apple Silicon (M1/M2/M3/M4) and Intel-based Macs.
+* **Authentication & Authorization**: Secure API access managed by `AuthController.cs`[cite: 2]. The project implements JSON Web Tokens (JWT) using the `Microsoft.AspNetCore.Authentication.JwtBearer` library[cite: 2].
+* **Product Management**: Provides comprehensive operations (CRUD) for products handled through `ProductsController.cs`[cite: 2].
+* **Service Repository Pattern**: Adheres to the Dependency Injection design pattern by utilizing `IProductService.cs`[cite: 2] and its concrete implementation in `ProductService.cs`[cite: 2].
+* **Data Access**: Utilizes Entity Framework Core via `AppDbContext.cs`[cite: 2] to interact with the database, mapping to models like `Product.cs`[cite: 2].
 
-## Prerequisites
-To run and develop this project on your local machine, ensure you have the following installed:
-- [.NET 8.0 SDK](https://dotnet.microsoft.com/download) or later
-- [Visual Studio Code](https://code.visualstudio.com/) with the **C# Dev Kit** extension
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) or [OrbStack](https://orbstack.dev/) (for database containerization)
-- [DBeaver](https://dbeaver.io/) or [TablePlus](https://tableplus.com/) (Optional, for database GUI management)
+## Tech Stack
+* **Framework**: .NET 10.0[cite: 2]
+* **Language**: C#[cite: 2]
+* **Security**: JWT Bearer Authentication[cite: 2]
+
+## Project Structure
+The repository follows a standard ASP.NET Core directory layout[cite: 2]:
+
+* `Controllers/`: Contains the API endpoints routing logic (`AuthController.cs`, `ProductsController.cs`)[cite: 2].
+* `Services/`: Houses the business logic implementation (`ProductService.cs`)[cite: 2].
+* `Interfaces/`: Defines contracts for the services (`IProductService.cs`)[cite: 2].
+* `Data/`: Contains the database context (`AppDbContext.cs`)[cite: 2].
+* `Models/`: Defines the data schema and entities (`Product.cs`)[cite: 2].
+* `Program.cs`: The main entry point and middleware configuration[cite: 2].
+* `MyFirstApi.http`: An HTTP file for testing API endpoints directly within the IDE[cite: 2].
 
 ## Getting Started
 
-### 1. Clone the Repository
-Clone the project to your local machine:
-```bash
-git clone [https://github.com/mcfr2008/MyFirstApi.git](https://github.com/mcfr2008/MyFirstApi.git)
-cd MyFirstApi
+### Prerequisites
+* .NET 10.0 SDK[cite: 2]
+
+### Configuration
+Update your database connection strings and JWT configurations in the application settings[cite: 2]:
+* `appsettings.json`[cite: 2]
+* `appsettings.Development.json`[cite: 2]
+
+### Running the Application
+The project includes predefined launch configurations. You can run the application using the settings defined in `Properties/launchSettings.json`[cite: 2].
