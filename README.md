@@ -9,14 +9,14 @@
 
 ## Overview
 
-**MyFirstApi** is a RESTful API built with **ASP.NET Core 10** and **C#**. The project demonstrates a practical API architecture with controller-based routing, dependency injection, a service layer, Entity Framework Core, MySQL, OpenAPI/Swagger, and JWT bearer authentication.
+**MyFirstApi** is a RESTful API built with **ASP.NET Core 10** and **C#**. The project demonstrates a practical API architecture with controller-based routing, dependency injection, a service layer, Entity Framework Core, PostgreSQL, OpenAPI/Swagger, and JWT bearer authentication.
 
 The current implementation provides:
 
 - Authentication through a JWT-based login endpoint
 - Product CRUD operations
 - Service and interface abstractions for business logic
-- Entity Framework Core with MySQL
+- Entity Framework Core with PostgreSQL
 - OpenAPI/Swagger documentation for development
 - HTTPS redirection and authentication/authorization middleware
 
@@ -37,7 +37,7 @@ Services / Interfaces
 Entity Framework Core
   |
   v
-MySQL Database
+PostgreSQL Database
 ```
 
 ### Main responsibilities
@@ -55,15 +55,39 @@ MySQL Database
 
 ### Authentication
 
-The API exposes `POST /api/Auth/login` and returns a JWT when the supplied credentials pass the current authentication logic.
+The API exposes `POST /api/Auth/login` and `POST /api/Auth/register`, backed by a `Users` table in PostgreSQL (see `Scripts/002_users_table.sql`). Passwords are hashed with BCrypt, and each user has a `Role` (a free-text string, so custom roles beyond `Admin`/`User` are supported). Successful logins return a JWT containing a `role` claim.
 
 JWT validation is configured with issuer, audience, lifetime, and signing-key validation.
 
-> **Security note:** The current login implementation is a demonstration and contains hardcoded credentials in `AuthController.cs`. Replace this with a real user store and password hashing before using the API in a production environment.
+### Authorization
+
+The API is **secure by default**: a global fallback policy (`Program.cs`) requires every request to be authenticated unless the endpoint is explicitly marked `[AllowAnonymous]` (currently only `POST /api/Auth/login`).
+
+Beyond that, access control is **database-driven** rather than hardcoded. Two tables control it:
+
+- `Permissions` — the catalog of permission codes (e.g. `Products.Create`).
+- `RolePermissions` — which `Role` (the same free-text value stored on `Users.Role`) grants which permission.
+
+Controller actions are decorated with `[Authorize(Policy = "...")]` using constants from `Authorization/Permissions.cs`:
+
+| Endpoint | Permission required |
+|---|---|
+| `POST /api/Auth/login` | Anonymous |
+| `POST /api/Auth/register` | `Auth.Register` |
+| `GET /api/Products`, `GET /api/Products/{id}` | `Products.Read` |
+| `POST /api/Products` | `Products.Create` |
+| `PUT /api/Products/{id}` | `Products.Update` |
+| `DELETE /api/Products/{id}` | `Products.Delete` |
+
+At request time, a custom `IAuthorizationPolicyProvider` (`Authorization/PermissionPolicyProvider.cs`) turns the policy name from the attribute into a `PermissionRequirement`, and `Authorization/PermissionAuthorizationHandler.cs` checks it against `RolePermissions` for the caller's role(s) (from the JWT's role claim) via `AppDbContext`. **Granting or revoking a permission is a data change** — insert or delete a row in `RolePermissions` — not a code change or redeploy; adding a brand-new permission only needs a new `Permissions` row plus the matching attribute on an action.
+
+`Scripts/003_users_seed_admin.sql` creates one bootstrap `admin` account (see the script for the default credentials), and `Scripts/005_permissions_seed.sql` grants the `Admin` role every permission and the `User` role `Products.Read` only — together giving `POST /api/Auth/register` an initial account to authenticate as. **Change that password immediately** after first login.
+
+Swagger UI has a bearer-token "Authorize" button configured (`Program.cs`) for exercising protected endpoints during development.
 
 ### Product Management
 
-`ProductsController` provides the following CRUD endpoints:
+`ProductsController` provides the following CRUD endpoints (see the Authorization table above for permission requirements):
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -89,20 +113,20 @@ The `Product` model currently contains:
 - **Language:** C#
 - **Runtime Target:** .NET 10
 - **ORM:** Entity Framework Core
-- **Database:** MySQL
-- **MySQL Provider:** Pomelo.EntityFrameworkCore.MySql
+- **Database:** PostgreSQL
+- **PostgreSQL Provider:** Npgsql.EntityFrameworkCore.PostgreSQL
 - **Authentication:** JWT Bearer
 - **API Documentation:** OpenAPI / Swagger
 - **Dependency Injection:** Built-in ASP.NET Core DI container
 
-> The project currently targets .NET 10 while several Entity Framework Core and Pomelo packages are on the 9.x major version. Keep package versions aligned with your intended .NET/EF Core release before production deployment.
+> The project currently targets .NET 10 while several Entity Framework Core and Npgsql packages are on the 9.x major version. Keep package versions aligned with your intended .NET/EF Core release before production deployment.
 
 ## Prerequisites
 
 Install the following before running the project:
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- MySQL Server 8.x or another compatible MySQL installation
+- PostgreSQL Server 14+ or another compatible PostgreSQL installation
 - An IDE/editor such as Visual Studio, JetBrains Rider, or Visual Studio Code
 - Git
 
@@ -129,7 +153,7 @@ dotnet restore
 
 ### 3. Configure the database
 
-Create a MySQL database for the application, then configure the connection string through a secure configuration mechanism.
+Create a PostgreSQL database for the application, then configure the connection string through a secure configuration mechanism.
 
 Recommended local-development approaches include:
 
@@ -142,7 +166,7 @@ Example configuration shape:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "server=localhost;port=3306;database=myfirstapi_db;user=<username>;password=<password>"
+    "DefaultConnection": "Host=localhost;Port=5432;Database=myfirstapi_db;Username=<username>;Password=<password>"
   },
   "Jwt": {
     "Key": "<strong-random-secret>",
@@ -154,7 +178,25 @@ Example configuration shape:
 
 **Never commit real database passwords, JWT signing keys, API keys, or other secrets to a public repository.**
 
-### 4. Run the API
+### 4. Create the schema
+
+The `Scripts/` folder holds one numbered SQL file per feature (schema first, then seed data), plus `run_all.sql` to run them all in order:
+
+| File | Purpose |
+|---|---|
+| `001_products_table.sql` | `Products` table |
+| `002_users_table.sql` | `Users` table |
+| `003_users_seed_admin.sql` | Bootstrap `admin` account |
+| `004_permissions_tables.sql` | `Permissions` and `RolePermissions` tables |
+| `005_permissions_seed.sql` | Permission catalog + default role grants |
+
+```bash
+psql -h localhost -p 5432 -U postgres -d myfirstapi_db -f Scripts/run_all.sql
+```
+
+Each file is also safe to run standalone (`CREATE TABLE IF NOT EXISTS` / `ON CONFLICT DO NOTHING`), so re-running `run_all.sql` after adding a new numbered file only applies what's new.
+
+### 5. Run the API
 
 ```bash
 dotnet run
@@ -314,14 +356,13 @@ For a production-grade development workflow, add automated tests for:
 
 Before exposing this API to the internet or deploying it to production:
 
-1. Remove all hardcoded credentials and secrets from source code and configuration files.
-2. Rotate any credentials or JWT keys that may already have been committed to a public repository.
+1. Remove all hardcoded secrets from source code and configuration files.
+2. Rotate any credentials or JWT keys that may already have been committed to a public repository, and change the seeded `admin` password from `Scripts/003_users_seed_admin.sql` immediately.
 3. Use HTTPS in every non-local environment.
 4. Use strong, randomly generated JWT signing keys and protect them through a secrets manager.
-5. Replace the demo login flow with a real identity and password-verification system.
-6. Apply authorization policies to protected resources.
-7. Add rate limiting, structured logging, monitoring, and centralized exception handling.
-8. Keep all framework and authentication dependencies patched and supported.
+5. Review the `RolePermissions` table and the permission requirements on each endpoint (see the Authorization table above) before adding new controllers, actions, or roles.
+6. Add rate limiting, structured logging, monitoring, and centralized exception handling.
+7. Keep all framework and authentication dependencies patched and supported.
 
 ## Contributing
 
@@ -361,9 +402,11 @@ test: add product service tests
 
 Potential improvements include:
 
-- [ ] Real database-backed authentication
-- [ ] Password hashing and account management
-- [ ] Authorization policies and roles
+- [x] Real database-backed authentication
+- [x] Password hashing and account management
+- [x] Database-driven, permission-based authorization
+- [ ] Admin UI/endpoints for managing roles and permissions
+- [ ] Self-service password change / reset
 - [ ] DTOs and input validation
 - [ ] EF Core migrations
 - [ ] Global exception handling with `ProblemDetails`
