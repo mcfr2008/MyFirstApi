@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MyFirstApi.Authorization;
 using MyFirstApi.Interfaces;
 using MyFirstApi.Models;
 
 namespace MyFirstApi.Controllers;
 
-// [Authorize]ß
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class ProductsController : ControllerBase
@@ -17,6 +18,7 @@ public class ProductsController : ControllerBase
         _productService = productService;
     }
 
+    [Authorize(Policy = Permissions.ProductsRead)]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -24,6 +26,7 @@ public class ProductsController : ControllerBase
         return Ok(products);
     }
 
+    [Authorize(Policy = Permissions.ProductsRead)]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -33,6 +36,7 @@ public class ProductsController : ControllerBase
         return Ok(product);
     }
 
+    [Authorize(Policy = Permissions.ProductsCreate)]
     [HttpPost]
     public async Task<IActionResult> Create(Product product)
     {
@@ -40,6 +44,7 @@ public class ProductsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = createdProduct.Id }, createdProduct);
     }
 
+    [Authorize(Policy = Permissions.ProductsUpdate)]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, Product product)
     {
@@ -49,6 +54,7 @@ public class ProductsController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = Permissions.ProductsDelete)]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
