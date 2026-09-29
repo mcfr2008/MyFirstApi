@@ -12,7 +12,11 @@ public record EventContext(
     decimal? Longitude = null,
     int? ShipmentId = null,
     int? ShipmentLegId = null,
-    int? ContainerId = null);
+    int? ContainerId = null,
+    // Code from ReasonCodes; checked against the event type.
+    string? ReasonCode = null,
+    // Mirrors a shipment/container operation, so it can't be voided directly.
+    bool IsSystemManaged = false);
 
 // Building block used by every service that records events (items, scans,
 // containers, shipments). It adds entities to the DbContext but never calls
@@ -30,4 +34,8 @@ public interface ITrackingEventRecorder
     Task<List<int>> GetContainerTreeIdsAsync(int rootContainerId);
 
     Task<List<TrackingEvent>> AddEventsAsync(IReadOnlyCollection<TrackedItem> items, EventType eventType, EventContext context);
+
+    // Rebuilds Status / CurrentLocationId / LastEventAt from the item's non-voided
+    // events (including ones added but not yet saved). Used after a void or correction.
+    Task RecalculateItemStateAsync(TrackedItem item);
 }

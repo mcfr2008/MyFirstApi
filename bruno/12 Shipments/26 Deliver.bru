@@ -1,0 +1,24 @@
+meta {
+  name: Deliver
+  type: http
+  seq: 26
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}/deliver
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "receivedBy": "Tanaka-san",
+    "note": "Signed at reception"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "Delivered"
+  res.body.deliveredAt: isString
+}

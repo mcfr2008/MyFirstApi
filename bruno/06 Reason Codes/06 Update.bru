@@ -1,0 +1,25 @@
+meta {
+  name: Update
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/api/ReasonCodes/{{reasonCodeId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "FORKLIFT_{{runId}}",
+    "nameTh": "เสียหายจากรถยกในคลัง",
+    "nameEn": "Forklift damage in warehouse",
+    "eventTypeCodes": ["DAMAGED"],
+    "sortOrder": 85
+  }
+}
+
+assert {
+  res.status: eq 200
+}

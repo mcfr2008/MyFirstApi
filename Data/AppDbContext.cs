@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<Shipment> Shipments { get; set; }
     public DbSet<ShipmentItem> ShipmentItems { get; set; }
     public DbSet<ShipmentLeg> ShipmentLegs { get; set; }
+    public DbSet<ReasonCode> ReasonCodes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -117,7 +118,13 @@ public class AppDbContext : DbContext
                 .HasForeignKey(e => e.ShipmentLegId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.Container).WithMany()
                 .HasForeignKey(e => e.ContainerId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ReasonCode).WithMany()
+                .HasForeignKey(e => e.ReasonCodeId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<TrackingEvent>().WithMany()
+                .HasForeignKey(e => e.ReplacesEventId).OnDelete(DeleteBehavior.Restrict);
         });
+
+        modelBuilder.Entity<ReasonCode>().HasIndex(r => r.Code).IsUnique();
 
         modelBuilder.Entity<Shipment>(entity =>
         {

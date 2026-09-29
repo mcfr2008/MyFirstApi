@@ -25,3 +25,6 @@
 \ir 019_shipments_tables.sql
 \ir 020_tracking_events_table.sql
 \ir 021_event_types_multimodal_seed.sql
+\ir 022_reason_codes_table.sql
+\ir 023_reason_codes_seed.sql
+\ir 024_tracking_events_void_reason.sql

@@ -1,0 +1,16 @@
+meta {
+  name: Get event by id (voided)
+  type: http
+  seq: 28
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents/{{lostEventId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.isVoided: eq true
+}

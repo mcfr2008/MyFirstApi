@@ -1,0 +1,21 @@
+meta {
+  name: Void without a reason (400)
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents/{{lostEventId}}/void
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reason": ""
+  }
+}
+
+assert {
+  res.status: eq 400
+}

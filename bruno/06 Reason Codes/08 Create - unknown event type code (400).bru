@@ -1,0 +1,24 @@
+meta {
+  name: Create - unknown event type code (400)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/ReasonCodes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "BAD_{{runId}}",
+    "nameTh": "ผิด",
+    "nameEn": "Bad",
+    "eventTypeCodes": ["NO_SUCH_EVENT"]
+  }
+}
+
+assert {
+  res.status: eq 400
+}

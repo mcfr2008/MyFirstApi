@@ -38,7 +38,7 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
 - Services throw `Exceptions/ConflictException` for data clashes and `Exceptions/BusinessRuleException` for business-rule failures. `Exceptions/ApiExceptionHandler` (registered in `Program.cs`) turns these into `409` and `400` responses shaped as `{ message }`, so controllers have no try/catch.
 - Enums are serialized as strings (`[JsonConverter(typeof(JsonStringEnumConverter<T>))]` on the enum) and stored as strings (`HasConversion<string>()`).
 - Lists are paged with `PagedResult<T>`. Items are archived (`IsArchived`) instead of deleted so tracking history survives.
-- **Master data** (`ItemCategories`, `Locations`, `Parties`, `EventTypes`, `Carriers`, `Vehicles`, `Containers`) is built on shared generic bases: `Services/MasterDataService<...>` and `Controllers/MasterDataController<...>`.
+- **Master data** (`ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`) is built on shared generic bases: `Services/MasterDataService<...>` and `Controllers/MasterDataController<...>`.
   - Each concrete service only defines its DbSet, projection, search, filters, order and `Apply`. Each concrete controller only adds `[Route]`.
   - Entities implement `Models/IMasterData`, and responses implement `IMasterDataResponse`.
   - Codes are unique and stored upper-case. `DELETE` deactivates (`IsActive=false`) instead of deleting.
@@ -50,9 +50,16 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
 
 ### Tracking model (the core of Thing-Tag)
 
-- **State only changes through events.** An item's `Status` and `CurrentLocationId` are never edited directly: `PUT` doesn't touch them, and there is no status endpoint. Every change is a `TrackingEvent`, an append-only row with no update or delete.
+- **State only changes through events.** An item's `Status` and `CurrentLocationId` are never edited directly: `PUT` doesn't touch them, and there is no status endpoint. Every change is a `TrackingEvent`, a row that is never updated or deleted.
   - `EventType.ResultingStatus` decides the new status (null means the event is informational).
   - An event only updates the item if its `OccurredAt >= item.LastEventAt`. A back-dated event is kept in the history without rewinding the item.
+- **Mistakes are voided, not deleted.**
+  - `POST /api/TrackingEvents/{id}/void` flags the event (`IsVoided`, with who/when/why). `/correct` voids it and records a replacement linked by `ReplacesEventId`.
+  - Both call `ITrackingEventRecorder.RecalculateItemStateAsync`, which rebuilds the item's status and location from its remaining non-voided events, including unsaved ones in the change tracker.
+  - Voided events are hidden from lists unless `includeVoided=true`.
+  - Events that mirror a shipment or container operation (`IsSystemManaged`: leg depart/arrive, customs, delivery, container load/unload) can't be voided. They must be undone through that operation, so shipment and container state stay consistent.
+- **Reason codes.** An `EventType` with `RequiresReason` (for example `DELIVERY_FAILED`, `DAMAGED`, `LOST`, `RETURNED`, `CUSTOMS_HOLD`) must be recorded with a `reasonCode`.
+  - The recorder checks that the code exists and is active, that it applies to the event type (`ReasonCode.EventTypeCodes`, where empty means any), and that a note is present when `RequiresNote` is set.
 - **`ITrackingEventRecorder`** (`Services/TrackingEventRecorder.cs`) is the single place that records events. It is used by `TrackingEventService` (single event or bulk scan), `TrackedItemService` (auto `REGISTERED` on create), `ContainerService` and `ShipmentService`.
   - It adds entities but never calls `SaveChanges`, so each caller commits its own changes and the events in one transaction.
   - It also resolves items by id or tag (rejecting archived ones) and expands nested container trees.

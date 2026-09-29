@@ -1,0 +1,31 @@
+meta {
+  name: Create
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/ReasonCodes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "FORKLIFT_{{runId}}",
+    "nameTh": "เสียหายจากรถยก",
+    "nameEn": "Forklift damage",
+    "eventTypeCodes": ["DAMAGED"],
+    "requiresNote": false,
+    "sortOrder": 85
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("reasonCodeId", res.body.id);
+  bru.setVar("reasonCodeCode", res.body.code);
+}

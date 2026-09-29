@@ -296,7 +296,7 @@ public class ShipmentService : IShipmentService
         shipment.UpdatedAt = DateTime.UtcNow;
 
         await RecordForShipmentAsync(shipment, LegEventCodes[leg.Mode].Departed,
-            leg.OriginLocationId, departedAt, request.Note, leg.Id);
+            leg.OriginLocationId, departedAt, request.Note, leg.Id, isSystemManaged: true);
 
         await _context.SaveChangesAsync();
         return await GetShipmentByIdAsync(id);
@@ -328,7 +328,7 @@ public class ShipmentService : IShipmentService
         shipment.UpdatedAt = DateTime.UtcNow;
 
         await RecordForShipmentAsync(shipment, LegEventCodes[leg.Mode].Arrived,
-            leg.DestinationLocationId, arrivedAt, request.Note, leg.Id);
+            leg.DestinationLocationId, arrivedAt, request.Note, leg.Id, isSystemManaged: true);
 
         await _context.SaveChangesAsync();
         return await GetShipmentByIdAsync(id);
@@ -355,7 +355,7 @@ public class ShipmentService : IShipmentService
             await RecordForShipmentAsync(shipment, eventCode,
                 request.LocationId ?? CurrentLocationId(shipment),
                 request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow,
-                request.Note, null);
+                request.Note, null, isSystemManaged: true, reasonCode: request.ReasonCode);
         }
 
         await _context.SaveChangesAsync();
@@ -373,7 +373,8 @@ public class ShipmentService : IShipmentService
         }
 
         var count = await RecordForShipmentAsync(shipment, request.EventTypeCode, request.LocationId,
-            request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow, request.Note, null, request.Latitude, request.Longitude);
+            request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow, request.Note, null, isSystemManaged: false,
+            reasonCode: request.ReasonCode, latitude: request.Latitude, longitude: request.Longitude);
 
         await _context.SaveChangesAsync();
         return new EventsRecordedResponse(QueryHelpers.NormalizeCode(request.EventTypeCode), count);
@@ -404,7 +405,8 @@ public class ShipmentService : IShipmentService
         shipment.DeliveredAt = deliveredAt;
         shipment.UpdatedAt = DateTime.UtcNow;
 
-        await RecordForShipmentAsync(shipment, DeliveredEventCode, shipment.DestinationLocationId, deliveredAt, note, null);
+        await RecordForShipmentAsync(shipment, DeliveredEventCode, shipment.DestinationLocationId, deliveredAt, note, null,
+            isSystemManaged: true);
 
         await _context.SaveChangesAsync();
         return await GetShipmentByIdAsync(id);
@@ -460,9 +462,11 @@ public class ShipmentService : IShipmentService
             .Select(l => (int?)l.DestinationLocationId)
             .FirstOrDefault() ?? shipment.OriginLocationId;
 
+    // isSystemManaged: the event mirrors this shipment's own state (legs, customs,
+    // delivery), so it can't be voided on its own.
     private async Task<int> RecordForShipmentAsync(
         Shipment shipment, string eventTypeCode, int? locationId, DateTime occurredAt, string? note,
-        int? legId, decimal? latitude = null, decimal? longitude = null)
+        int? legId, bool isSystemManaged, string? reasonCode = null, decimal? latitude = null, decimal? longitude = null)
     {
         var items = await _context.TrackedItems
             .Where(i => _context.ShipmentItems.Any(si => si.ShipmentId == shipment.Id && si.TrackedItemId == i.Id))
@@ -475,7 +479,7 @@ public class ShipmentService : IShipmentService
         var eventType = await _recorder.GetEventTypeAsync(eventTypeCode);
         await _recorder.AddEventsAsync(items, eventType, new EventContext(
             locationId, occurredAt, EventSource.Shipment, note, latitude, longitude,
-            ShipmentId: shipment.Id, ShipmentLegId: legId));
+            ShipmentId: shipment.Id, ShipmentLegId: legId, ReasonCode: reasonCode, IsSystemManaged: isSystemManaged));
         return items.Count;
     }
 

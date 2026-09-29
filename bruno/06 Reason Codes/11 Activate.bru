@@ -1,0 +1,15 @@
+meta {
+  name: Activate
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/ReasonCodes/{{reasonCodeId}}/activate
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}

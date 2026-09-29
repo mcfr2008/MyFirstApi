@@ -1,0 +1,16 @@
+meta {
+  name: Item is on hold
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{baseUrl}}/api/TrackedItems/{{itemId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "OnHold"
+}

@@ -13,6 +13,8 @@ public class EventType : IMasterData
     public ItemStatus? ResultingStatus { get; set; }
     // No further events are expected after a terminal one (e.g. Delivered).
     public bool IsTerminal { get; set; }
+    // Recording this event needs a ReasonCode (e.g. DELIVERY_FAILED, DAMAGED).
+    public bool RequiresReason { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }

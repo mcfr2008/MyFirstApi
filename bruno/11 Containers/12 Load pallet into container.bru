@@ -1,0 +1,21 @@
+meta {
+  name: Load pallet into container
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/Containers/{{containerId}}/load
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "childContainerIds": [{{palletId}}]
+  }
+}
+
+assert {
+  res.status: eq 200
+}

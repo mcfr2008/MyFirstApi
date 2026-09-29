@@ -1,0 +1,16 @@
+meta {
+  name: Remove item
+  type: http
+  seq: 33
+}
+
+delete {
+  url: {{baseUrl}}/api/Shipments/{{domesticShipmentId}}/items/{{itemId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.itemCount: eq 0
+}

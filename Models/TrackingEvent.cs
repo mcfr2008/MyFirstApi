@@ -15,7 +15,8 @@ public enum EventSource
     Shipment
 }
 
-// One entry in an item's history. Events are append-only: never updated or deleted.
+// One entry in an item's history. Events are never updated or deleted: a wrong
+// event is voided (kept, flagged, with who/when/why) and optionally replaced.
 public class TrackingEvent
 {
     public long Id { get; set; }
@@ -39,4 +40,17 @@ public class TrackingEvent
     public ShipmentLeg? ShipmentLeg { get; set; }
     public int? ContainerId { get; set; }
     public Container? Container { get; set; }
+    public int? ReasonCodeId { get; set; }
+    public ReasonCode? ReasonCode { get; set; }
+
+    // Recorded by a shipment/container operation (leg departure, customs,
+    // delivery, load/unload). Can't be voided directly - undo the operation instead.
+    public bool IsSystemManaged { get; set; }
+
+    public bool IsVoided { get; set; }
+    public DateTime? VoidedAt { get; set; }
+    public string? VoidedBy { get; set; }
+    public string? VoidReason { get; set; }
+    // Set on a correction: the voided event this one replaces.
+    public long? ReplacesEventId { get; set; }
 }

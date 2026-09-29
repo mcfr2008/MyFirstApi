@@ -27,6 +27,7 @@ public class EventTypeService
         Description = e.Description,
         ResultingStatus = e.ResultingStatus,
         IsTerminal = e.IsTerminal,
+        RequiresReason = e.RequiresReason,
         SortOrder = e.SortOrder,
         IsActive = e.IsActive,
         CreatedAt = e.CreatedAt,
@@ -49,6 +50,7 @@ public class EventTypeService
         entity.Description = QueryHelpers.NullIfBlank(request.Description);
         entity.ResultingStatus = request.ResultingStatus;
         entity.IsTerminal = request.IsTerminal;
+        entity.RequiresReason = request.RequiresReason;
         entity.SortOrder = request.SortOrder;
     }
 }

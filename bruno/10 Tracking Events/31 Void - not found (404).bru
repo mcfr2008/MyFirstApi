@@ -1,0 +1,21 @@
+meta {
+  name: Void - not found (404)
+  type: http
+  seq: 31
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents/999999999/void
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reason": "Does not exist"
+  }
+}
+
+assert {
+  res.status: eq 404
+}

@@ -54,6 +54,7 @@ builder.Services.AddScoped<IEventTypeService, EventTypeService>();
 builder.Services.AddScoped<ICarrierService, CarrierService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
 builder.Services.AddScoped<IContainerService, ContainerService>();
+builder.Services.AddScoped<IReasonCodeService, ReasonCodeService>();
 builder.Services.AddScoped<ITrackingEventRecorder, TrackingEventRecorder>();
 builder.Services.AddScoped<ITrackingEventService, TrackingEventService>();
 builder.Services.AddScoped<IShipmentService, ShipmentService>();

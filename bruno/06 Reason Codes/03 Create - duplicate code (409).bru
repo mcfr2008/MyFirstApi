@@ -1,0 +1,26 @@
+meta {
+  name: Create - duplicate code (409)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/ReasonCodes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "FORKLIFT_{{runId}}",
+    "nameTh": "เสียหายจากรถยก",
+    "nameEn": "Forklift damage",
+    "eventTypeCodes": ["DAMAGED"],
+    "requiresNote": false,
+    "sortOrder": 85
+  }
+}
+
+assert {
+  res.status: eq 409
+}

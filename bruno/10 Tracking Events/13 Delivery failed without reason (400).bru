@@ -1,0 +1,26 @@
+meta {
+  name: Delivery failed without reason (400)
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "{{itemTagCode}}",
+    "eventTypeCode": "DELIVERY_FAILED"
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+docs {
+  DELIVERY_FAILED has requiresReason = true.
+}

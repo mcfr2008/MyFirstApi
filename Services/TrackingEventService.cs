@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using MyFirstApi.Data;
 using MyFirstApi.Dtos;
+using MyFirstApi.Exceptions;
 using MyFirstApi.Interfaces;
 using MyFirstApi.Models;
 
@@ -11,14 +12,17 @@ public class TrackingEventService : ITrackingEventService
 {
     private readonly AppDbContext _context;
     private readonly ITrackingEventRecorder _recorder;
+    private readonly ICurrentUser _currentUser;
 
-    public TrackingEventService(AppDbContext context, ITrackingEventRecorder recorder)
+    public TrackingEventService(AppDbContext context, ITrackingEventRecorder recorder, ICurrentUser currentUser)
     {
         _context = context;
         _recorder = recorder;
+        _currentUser = currentUser;
     }
 
-    private static readonly Expression<Func<TrackingEvent, TrackingEventResponse>> Projection = e => new TrackingEventResponse
+    // Instance property (not static): ReplacedByEventId is a subquery on the context.
+    private Expression<Func<TrackingEvent, TrackingEventResponse>> Projection => e => new TrackingEventResponse
     {
         Id = e.Id,
         TrackedItem = new ReferenceSummary(e.TrackedItem.Id, e.TrackedItem.TagCode, e.TrackedItem.Name),
@@ -38,13 +42,30 @@ public class TrackingEventService : ITrackingEventService
         ShipmentLegId = e.ShipmentLegId,
         Container = e.Container == null
             ? null
-            : new ReferenceSummary(e.Container.Id, e.Container.Code, e.Container.Type.ToString())
+            : new ReferenceSummary(e.Container.Id, e.Container.Code, e.Container.Type.ToString()),
+        Reason = e.ReasonCode == null
+            ? null
+            : new ReasonSummary(e.ReasonCode.Id, e.ReasonCode.Code, e.ReasonCode.NameTh, e.ReasonCode.NameEn),
+        IsSystemManaged = e.IsSystemManaged,
+        IsVoided = e.IsVoided,
+        VoidedAt = e.VoidedAt,
+        VoidedBy = e.VoidedBy,
+        VoidReason = e.VoidReason,
+        ReplacesEventId = e.ReplacesEventId,
+        ReplacedByEventId = _context.TrackingEvents
+            .Where(r => r.ReplacesEventId == e.Id)
+            .Select(r => (long?)r.Id)
+            .FirstOrDefault()
     };
 
     public async Task<PagedResult<TrackingEventResponse>> GetEventsAsync(TrackingEventQuery query)
     {
         var events = _context.TrackingEvents.AsNoTracking();
 
+        if (!query.IncludeVoided)
+        {
+            events = events.Where(e => !e.IsVoided);
+        }
         if (query.TrackedItemId.HasValue)
         {
             events = events.Where(e => e.TrackedItemId == query.TrackedItemId);
@@ -70,6 +91,11 @@ public class TrackingEventService : ITrackingEventService
         {
             var code = QueryHelpers.NormalizeCode(query.EventTypeCode);
             events = events.Where(e => e.EventType.Code == code);
+        }
+        if (!string.IsNullOrWhiteSpace(query.ReasonCode))
+        {
+            var reasonCode = QueryHelpers.NormalizeCode(query.ReasonCode);
+            events = events.Where(e => e.ReasonCode != null && e.ReasonCode.Code == reasonCode);
         }
         if (query.From.HasValue)
         {
@@ -129,12 +155,99 @@ public class TrackingEventService : ITrackingEventService
             source,
             details.Note,
             details.Latitude,
-            details.Longitude);
+            details.Longitude,
+            ReasonCode: details.ReasonCode);
 
         var events = await _recorder.AddEventsAsync(items, eventType, context);
         await _context.SaveChangesAsync();
 
-        var ids = events.Select(e => e.Id).ToList();
+        return await GetByIdsAsync(events.Select(e => e.Id).ToList());
+    }
+
+    public async Task<TrackingEventResponse?> GetEventByIdAsync(long id) =>
+        await _context.TrackingEvents.AsNoTracking().Where(e => e.Id == id).Select(Projection).FirstOrDefaultAsync();
+
+    // The item's status/location are rebuilt from its remaining events.
+    public async Task<TrackingEventResponse?> VoidAsync(long id, VoidEventRequest request)
+    {
+        var original = await LoadVoidableAsync(id);
+        if (original == null) return null;
+
+        MarkVoided(original, request.Reason);
+        await _recorder.RecalculateItemStateAsync(original.TrackedItem);
+        await _context.SaveChangesAsync();
+
+        return await GetEventByIdAsync(id);
+    }
+
+    public async Task<CorrectEventResponse?> CorrectAsync(long id, CorrectEventRequest request)
+    {
+        var original = await LoadVoidableAsync(id);
+        if (original == null) return null;
+
+        var eventType = string.IsNullOrWhiteSpace(request.EventTypeCode)
+            ? original.EventType
+            : await _recorder.GetEventTypeAsync(request.EventTypeCode);
+        var sameType = eventType.Id == original.EventTypeId;
+
+        MarkVoided(original, request.Reason);
+
+        var context = new EventContext(
+            request.LocationId ?? original.LocationId,
+            request.OccurredAt?.UtcDateTime ?? original.OccurredAt,
+            original.Source,
+            request.Note ?? original.Note,
+            request.Latitude ?? original.Latitude,
+            request.Longitude ?? original.Longitude,
+            original.ShipmentId,
+            original.ShipmentLegId,
+            original.ContainerId,
+            request.ReasonCode ?? (sameType ? original.ReasonCode?.Code : null));
+        var replacement = (await _recorder.AddEventsAsync([original.TrackedItem], eventType, context))[0];
+        replacement.ReplacesEventId = original.Id;
+
+        await _recorder.RecalculateItemStateAsync(original.TrackedItem);
+        await _context.SaveChangesAsync();
+
+        return new CorrectEventResponse((await GetEventByIdAsync(id))!, (await GetEventByIdAsync(replacement.Id))!);
+    }
+
+    private async Task<TrackingEvent?> LoadVoidableAsync(long id)
+    {
+        var trackingEvent = await _context.TrackingEvents
+            .Include(e => e.EventType)
+            .Include(e => e.ReasonCode)
+            .Include(e => e.TrackedItem)
+            .FirstOrDefaultAsync(e => e.Id == id);
+        if (trackingEvent == null) return null;
+
+        if (trackingEvent.IsVoided)
+        {
+            throw new ConflictException("Event is already voided.");
+        }
+        if (trackingEvent.IsSystemManaged)
+        {
+            throw new ConflictException(
+                "This event was recorded by a shipment or container operation; undo it there " +
+                "(e.g. unload the container) instead of voiding it.");
+        }
+        if (trackingEvent.TrackedItem.IsArchived)
+        {
+            throw new BusinessRuleException("Events of archived items can't be changed. Restore the item first.");
+        }
+        return trackingEvent;
+    }
+
+    private void MarkVoided(TrackingEvent trackingEvent, string reason)
+    {
+        trackingEvent.IsVoided = true;
+        trackingEvent.VoidedAt = DateTime.UtcNow;
+        trackingEvent.VoidedBy = _currentUser.Username;
+        trackingEvent.VoidReason = reason.Trim();
+    }
+
+    private async Task<List<TrackingEventResponse>> GetByIdsAsync(List<long> ids)
+    {
         return await _context.TrackingEvents
             .Where(e => ids.Contains(e.Id))
             .OrderBy(e => e.Id)

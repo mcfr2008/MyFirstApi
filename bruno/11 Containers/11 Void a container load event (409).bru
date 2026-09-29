@@ -1,0 +1,25 @@
+meta {
+  name: Void a container load event (409)
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents/{{managedEventId}}/void
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reason": "Should be undone with unload instead"
+  }
+}
+
+assert {
+  res.status: eq 409
+}
+
+docs {
+  System-managed events are undone through the operation that made them (here: unload).
+}

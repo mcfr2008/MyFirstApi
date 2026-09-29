@@ -37,6 +37,8 @@ public static class IsoRules
 // Compact event type reference embedded in event responses.
 public record EventTypeSummary(int Id, string Code, string NameTh, string NameEn);
 
+public record ReasonSummary(int Id, string Code, string NameTh, string NameEn);
+
 public class PagedQuery
 {
     [Range(1, int.MaxValue)]

@@ -184,6 +184,10 @@ public class CustomsUpdateRequest
     // Where customs is handling it (e.g. the port); defaults to the current leg's location.
     public int? LocationId { get; set; }
 
+    // Required for Hold (CUSTOMS_HOLD needs a reason), e.g. MISSING_DOCUMENTS.
+    [StringLength(50)]
+    public string? ReasonCode { get; set; }
+
     public DateTimeOffset? OccurredAt { get; set; }
 
     [StringLength(2000)]

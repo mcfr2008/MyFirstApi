@@ -174,7 +174,8 @@ public class ContainerService
             }
             var eventType = await _recorder.GetEventTypeAsync(LoadedEventCode);
             await _recorder.AddEventsAsync(items, eventType,
-                new EventContext(container.CurrentLocationId, DateTime.UtcNow, EventSource.Container, ContainerId: id));
+                new EventContext(container.CurrentLocationId, DateTime.UtcNow, EventSource.Container,
+                    ContainerId: id, IsSystemManaged: true));
             recorded = items.Count;
         }
 
@@ -233,7 +234,8 @@ public class ContainerService
         {
             var eventType = await _recorder.GetEventTypeAsync(UnloadedEventCode);
             await _recorder.AddEventsAsync(trackable, eventType,
-                new EventContext(container.CurrentLocationId, DateTime.UtcNow, EventSource.Container, request.Note, ContainerId: id));
+                new EventContext(container.CurrentLocationId, DateTime.UtcNow, EventSource.Container, request.Note,
+                    ContainerId: id, IsSystemManaged: true));
         }
 
         await Context.SaveChangesAsync();
@@ -259,7 +261,8 @@ public class ContainerService
             request.Note,
             request.Latitude,
             request.Longitude,
-            ContainerId: id);
+            ContainerId: id,
+            ReasonCode: request.ReasonCode);
         await _recorder.AddEventsAsync(items, eventType, context);
 
         // The container (and everything nested in it) moves with its contents.

@@ -1,0 +1,19 @@
+meta {
+  name: Deactivate
+  type: http
+  seq: 21
+}
+
+delete {
+  url: {{baseUrl}}/api/Containers/{{containerId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}
+
+docs {
+  Soft delete: sets isActive=false. Inactive rows can't be newly assigned.
+}

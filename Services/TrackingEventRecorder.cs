@@ -99,6 +99,7 @@ public class TrackingEventRecorder : ITrackingEventRecorder
         EnsureNotArchived(items);
 
         await ReferenceResolver.ResolveAsync(_context.Locations.AsNoTracking(), context.LocationId, null, "Location");
+        var reason = await ResolveReasonAsync(eventType, context);
 
         var now = DateTime.UtcNow;
         var events = new List<TrackingEvent>(items.Count);
@@ -108,7 +109,9 @@ public class TrackingEventRecorder : ITrackingEventRecorder
             var trackingEvent = new TrackingEvent
             {
                 TrackedItem = item,
-                EventTypeId = eventType.Id,
+                EventType = eventType,
+                ReasonCodeId = reason?.Id,
+                IsSystemManaged = context.IsSystemManaged,
                 LocationId = context.LocationId,
                 OccurredAt = context.OccurredAt,
                 RecordedAt = now,
@@ -127,6 +130,65 @@ public class TrackingEventRecorder : ITrackingEventRecorder
 
         _context.TrackingEvents.AddRange(events);
         return events;
+    }
+
+    public async Task RecalculateItemStateAsync(TrackedItem item)
+    {
+        // Tracked instances keep in-memory changes (e.g. IsVoided just set), so
+        // filter again after loading; unsaved events come from the change tracker.
+        var saved = await _context.TrackingEvents
+            .Include(e => e.EventType)
+            .Where(e => e.TrackedItemId == item.Id && !e.IsVoided)
+            .ToListAsync();
+        var unsaved = _context.ChangeTracker.Entries<TrackingEvent>()
+            .Where(entry => entry.State == EntityState.Added && entry.Entity.TrackedItem == item)
+            .Select(entry => entry.Entity);
+
+        var timeline = saved.Where(e => !e.IsVoided)
+            .Concat(unsaved)
+            .OrderBy(e => e.OccurredAt)
+            .ThenBy(e => e.Id == 0 ? long.MaxValue : e.Id)
+            .ToList();
+
+        item.Status = timeline.LastOrDefault(e => e.EventType.ResultingStatus.HasValue)?.EventType.ResultingStatus
+                      ?? ItemStatus.Registered;
+        item.CurrentLocationId = timeline.LastOrDefault(e => e.LocationId.HasValue)?.LocationId ?? item.CurrentLocationId;
+        item.LastEventAt = timeline.LastOrDefault()?.OccurredAt;
+        item.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private async Task<ReasonCode?> ResolveReasonAsync(EventType eventType, EventContext context)
+    {
+        if (string.IsNullOrWhiteSpace(context.ReasonCode))
+        {
+            if (eventType.RequiresReason)
+            {
+                throw new BusinessRuleException(
+                    $"Event type {eventType.Code} requires a reasonCode (see /api/ReasonCodes?eventTypeCode={eventType.Code}).");
+            }
+            return null;
+        }
+
+        var code = QueryHelpers.NormalizeCode(context.ReasonCode);
+        var reason = await _context.ReasonCodes.AsNoTracking().FirstOrDefaultAsync(r => r.Code == code);
+        if (reason == null)
+        {
+            throw new BusinessRuleException($"Reason code {code} does not exist.");
+        }
+        if (!reason.IsActive)
+        {
+            throw new BusinessRuleException($"Reason code {code} is inactive.");
+        }
+        if (reason.EventTypeCodes.Count > 0 && !reason.EventTypeCodes.Contains(eventType.Code))
+        {
+            throw new BusinessRuleException(
+                $"Reason code {code} can't be used with {eventType.Code} (allowed: {string.Join(", ", reason.EventTypeCodes)}).");
+        }
+        if (reason.RequiresNote && string.IsNullOrWhiteSpace(context.Note))
+        {
+            throw new BusinessRuleException($"Reason code {code} requires a note explaining what happened.");
+        }
+        return reason;
     }
 
     // An event updates the item's current state only if it is the newest one;

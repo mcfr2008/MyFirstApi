@@ -1,0 +1,20 @@
+meta {
+  name: Events by reason
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents?reasonCode=RECIPIENT_ABSENT
+  body: none
+  auth: inherit
+}
+
+params:query {
+  reasonCode: RECIPIENT_ABSENT
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: gte 1
+}

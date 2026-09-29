@@ -1,0 +1,21 @@
+meta {
+  name: Item location is recalculated
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{baseUrl}}/api/TrackedItems/{{itemId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("location is back to the hub", function () {
+    expect(res.body.currentLocation.id).to.equal(bru.getVar("locationId"));
+  });
+}

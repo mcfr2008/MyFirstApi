@@ -1,0 +1,21 @@
+meta {
+  name: Unload item not inside (400)
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/Containers/{{containerId}}/unload
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": ["{{itemTagCode}}"]
+  }
+}
+
+assert {
+  res.status: eq 400
+}
