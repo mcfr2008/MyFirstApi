@@ -1,0 +1,31 @@
+meta {
+  name: Create
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/Vehicles
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "VSL-{{runId}}",
+    "name": "EXAMPLE STAR",
+    "mode": "Sea",
+    "carrierId": {{carrierId}},
+    "imoNumber": "9321483",
+    "capacityKg": 150000000
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("vehicleId", res.body.id);
+  bru.setVar("vehicleCode", res.body.code);
+}

@@ -1,0 +1,23 @@
+meta {
+  name: Contents (nested)
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/Containers/{{containerId}}/contents
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalItemCount: eq 3
+}
+
+tests {
+  test("pallet is nested with its 2 cartons", function () {
+    expect(res.body.childContainers[0].container.id).to.equal(bru.getVar("palletId"));
+    expect(res.body.childContainers[0].items.length).to.equal(2);
+  });
+}

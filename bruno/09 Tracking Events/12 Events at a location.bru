@@ -1,0 +1,21 @@
+meta {
+  name: Events at a location
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents?locationId={{locationId}}&eventTypeCode=ARRIVED_AT_HUB
+  body: none
+  auth: inherit
+}
+
+params:query {
+  locationId: {{locationId}}
+  eventTypeCode: ARRIVED_AT_HUB
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: gte 4
+}

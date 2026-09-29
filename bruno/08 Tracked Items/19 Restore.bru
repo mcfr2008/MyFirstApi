@@ -1,0 +1,15 @@
+meta {
+  name: Restore
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/TrackedItems/{{itemId}}/restore
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}

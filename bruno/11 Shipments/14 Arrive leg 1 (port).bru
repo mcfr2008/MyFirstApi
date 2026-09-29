@@ -1,0 +1,22 @@
+meta {
+  name: Arrive leg 1 (port)
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}/legs/{{leg1Id}}/arrive
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "note": "Gate-in at Laem Chabang"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.currentLegSequence: eq 2
+}

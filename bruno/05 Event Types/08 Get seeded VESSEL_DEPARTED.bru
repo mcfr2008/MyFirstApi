@@ -1,0 +1,16 @@
+meta {
+  name: Get seeded VESSEL_DEPARTED
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/EventTypes/by-code/VESSEL_DEPARTED
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.resultingStatus: eq "InTransit"
+}

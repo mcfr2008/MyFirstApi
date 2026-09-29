@@ -1,0 +1,31 @@
+meta {
+  name: Create
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/ItemCategories
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "ELEC-{{runId}}",
+    "name": "Electronics {{runId}}",
+    "description": "Electronic devices",
+    "requiredAttributes": ["serialNumber"],
+    "isFragile": true,
+    "requiresTemperatureControl": false
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("categoryId", res.body.id);
+  bru.setVar("categoryCode", res.body.code);
+}

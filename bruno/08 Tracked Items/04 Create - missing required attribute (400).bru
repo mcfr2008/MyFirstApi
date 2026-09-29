@@ -1,0 +1,26 @@
+meta {
+  name: Create - missing required attribute (400)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/TrackedItems
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Phone without serial number",
+    "categoryId": {{categoryId}}
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+docs {
+  The category requires `serialNumber` in attributes.
+}

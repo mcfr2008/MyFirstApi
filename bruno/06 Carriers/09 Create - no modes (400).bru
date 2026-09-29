@@ -1,0 +1,23 @@
+meta {
+  name: Create - no modes (400)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/Carriers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "NOMODE-{{runId}}",
+    "name": "No modes",
+    "modes": []
+  }
+}
+
+assert {
+  res.status: eq 400
+}

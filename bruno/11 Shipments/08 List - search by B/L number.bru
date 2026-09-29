@@ -1,0 +1,20 @@
+meta {
+  name: List - search by B/L number
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/Shipments?search=BL-{{runId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  search: BL-{{runId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 1
+}

@@ -1,0 +1,90 @@
+meta {
+  name: Create multimodal shipment
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reference": "PO-{{runId}}",
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{locationId}},
+    "destinationLocationId": {{jpCustomerLocId}},
+    "incoterm": "CIF",
+    "plannedPickupAt": "2026-10-05T08:00:00+07:00",
+    "notes": "Bangkok -> Laem Chabang -> Tokyo -> customer",
+    "tagCodes": ["{{itemTagCode}}"],
+    "containerIds": [{{containerId}}],
+    "legs": [
+      {
+        "mode": "Road",
+        "originLocationId": {{locationId}},
+        "destinationLocationId": {{portThId}},
+        "carrierId": {{roadCarrierId}},
+        "vehicleId": {{truckId}},
+        "voyageNumber": "TRIP-{{runId}}",
+        "plannedDeparture": "2026-10-05T08:00:00+07:00",
+        "plannedArrival": "2026-10-05T12:00:00+07:00",
+        "documentNumber": "CN-{{runId}}"
+      },
+      {
+        "mode": "Sea",
+        "originLocationId": {{portThId}},
+        "destinationLocationId": {{portJpId}},
+        "carrierId": {{carrierId}},
+        "vehicleId": {{vehicleId}},
+        "voyageNumber": "245E",
+        "plannedDeparture": "2026-10-06T18:00:00+07:00",
+        "plannedArrival": "2026-10-14T08:00:00+09:00",
+        "documentType": "BillOfLading",
+        "documentNumber": "BL-{{runId}}"
+      },
+      {
+        "mode": "Road",
+        "originLocationId": {{portJpId}},
+        "destinationLocationId": {{jpCustomerLocId}},
+        "vehicleName": "Tokyo Trucking van",
+        "plannedDeparture": "2026-10-15T09:00:00+09:00",
+        "plannedArrival": "2026-10-15T15:00:00+09:00"
+      }
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.status: eq "Planned"
+  res.body.isInternational: eq true
+  res.body.customsStatus: eq "Pending"
+  res.body.itemCount: eq 3
+  res.body.incoterm: eq "CIF"
+}
+
+script:post-response {
+  bru.setVar("shipmentId", res.body.id);
+  bru.setVar("trackingNumber", res.body.trackingNumber);
+  bru.setVar("leg1Id", res.body.legs[0].id);
+  bru.setVar("leg2Id", res.body.legs[1].id);
+  bru.setVar("leg3Id", res.body.legs[2].id);
+}
+
+tests {
+  test("legs are chained with defaults filled in", function () {
+    const legs = res.body.legs;
+    expect(legs.length).to.equal(3);
+    expect(legs[0].documentType).to.equal("RoadConsignmentNote");
+    expect(legs[1].carrierTrackingUrl).to.contain("BL-");
+    expect(legs[2].vehicleName).to.equal("Tokyo Trucking van");
+  });
+}
+
+docs {
+  Container items (the 2 cartons on the pallet) are added automatically. International, so customs starts as Pending.
+}

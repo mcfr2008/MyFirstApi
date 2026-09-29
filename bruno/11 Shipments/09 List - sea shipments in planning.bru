@@ -1,0 +1,21 @@
+meta {
+  name: List - sea shipments in planning
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/Shipments?mode=Sea&status=Planned
+  body: none
+  auth: inherit
+}
+
+params:query {
+  mode: Sea
+  status: Planned
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: gte 1
+}

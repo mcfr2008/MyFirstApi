@@ -1,0 +1,25 @@
+meta {
+  name: Scan several tags
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents/scan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": ["RFID-{{runId}}-1", "rfid-{{runId}}-2", "RFID-{{runId}}-3"],
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{locationId}},
+    "note": "Inbound truck unloaded"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.eventsRecorded: eq 3
+}

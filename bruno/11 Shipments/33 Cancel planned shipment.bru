@@ -1,0 +1,16 @@
+meta {
+  name: Cancel planned shipment
+  type: http
+  seq: 33
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments/{{domesticShipmentId}}/cancel
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "Cancelled"
+}

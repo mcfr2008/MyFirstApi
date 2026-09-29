@@ -1,0 +1,16 @@
+meta {
+  name: Status unchanged after back-dated event
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/TrackedItems/{{itemId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "InTransit"
+}

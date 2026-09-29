@@ -1,0 +1,29 @@
+meta {
+  name: Record event by tag code
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "{{itemTagCode}}",
+    "eventTypeCode": "PICKED_UP",
+    "locationId": {{locationId}},
+    "note": "Picked up from sender",
+    "latitude": 13.668,
+    "longitude": 100.634
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.eventType.code: eq "PICKED_UP"
+  res.body.resultingStatus: eq "InTransit"
+  res.body.source: eq "Manual"
+}

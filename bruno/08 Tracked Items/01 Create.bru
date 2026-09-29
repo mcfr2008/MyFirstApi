@@ -1,0 +1,59 @@
+meta {
+  name: Create
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/TrackedItems
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "QR-{{runId}}",
+    "name": "Notebook Dell XPS 13",
+    "description": "Laptop for export",
+    "categoryId": {{categoryId}},
+    "currentLocationId": {{locationId}},
+    "ownerPartyId": {{partyId}},
+    "weightKg": 1.2,
+    "lengthCm": 30,
+    "widthCm": 20,
+    "heightCm": 2,
+    "declaredValue": 1200,
+    "currency": "USD",
+    "hsCode": "8471.30",
+    "originCountry": "CN",
+    "attributes": {
+      "serialNumber": "SN-{{runId}}",
+      "color": "silver"
+    }
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.status: eq "Registered"
+  res.body.currency: eq "USD"
+  res.body.hsCode: eq "8471.30"
+  res.body.lastEventAt: isString
+}
+
+script:post-response {
+  bru.setVar("itemId", res.body.id);
+  bru.setVar("itemTagCode", res.body.tagCode);
+}
+
+tests {
+  test("references are embedded", function () {
+    expect(res.body.category.id).to.equal(bru.getVar("categoryId"));
+    expect(res.body.currentLocation.id).to.equal(bru.getVar("locationId"));
+    expect(res.body.owner.id).to.equal(bru.getVar("partyId"));
+  });
+}
+
+docs {
+  Uses the category/location/party created earlier. A REGISTERED event is recorded automatically.
+}

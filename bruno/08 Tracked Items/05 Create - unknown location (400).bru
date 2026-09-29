@@ -1,0 +1,22 @@
+meta {
+  name: Create - unknown location (400)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/TrackedItems
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Somewhere",
+    "currentLocationId": 999999
+  }
+}
+
+assert {
+  res.status: eq 400
+}

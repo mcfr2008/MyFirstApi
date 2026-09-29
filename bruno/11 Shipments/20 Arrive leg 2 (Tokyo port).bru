@@ -1,0 +1,19 @@
+meta {
+  name: Arrive leg 2 (Tokyo port)
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}/legs/{{leg2Id}}/arrive
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 200
+}

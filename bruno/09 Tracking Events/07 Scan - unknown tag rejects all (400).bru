@@ -1,0 +1,22 @@
+meta {
+  name: Scan - unknown tag rejects all (400)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents/scan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": ["RFID-{{runId}}-1", "NO-SUCH-TAG"],
+    "eventTypeCode": "DEPARTED_HUB"
+  }
+}
+
+assert {
+  res.status: eq 400
+}

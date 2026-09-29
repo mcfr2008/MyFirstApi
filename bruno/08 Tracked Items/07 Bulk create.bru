@@ -1,0 +1,42 @@
+meta {
+  name: Bulk create
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/TrackedItems/bulk
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "items": [
+      {
+        "tagCode": "RFID-{{runId}}-1",
+        "name": "Carton 1",
+        "categoryId": {{categoryId}},
+        "currentLocationId": {{locationId}},
+        "attributes": { "serialNumber": "CTN-1" }
+      },
+      {
+        "tagCode": "RFID-{{runId}}-2",
+        "name": "Carton 2",
+        "categoryId": {{categoryId}},
+        "currentLocationId": {{locationId}},
+        "attributes": { "serialNumber": "CTN-2" }
+      },
+      {
+        "tagCode": "RFID-{{runId}}-3",
+        "name": "Carton 3",
+        "currentLocationId": {{locationId}}
+      }
+    ]
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.createdCount: eq 3
+}

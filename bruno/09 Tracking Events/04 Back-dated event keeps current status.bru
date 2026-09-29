@@ -1,0 +1,28 @@
+meta {
+  name: Back-dated event keeps current status
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "{{itemTagCode}}",
+    "eventTypeCode": "DAMAGED",
+    "occurredAt": "2020-01-01T00:00:00Z",
+    "note": "Entered late: old damage report"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+docs {
+  Stored in the history, but older than the item's last event, so status stays InTransit.
+}

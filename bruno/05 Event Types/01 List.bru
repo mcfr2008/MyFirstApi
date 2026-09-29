@@ -1,0 +1,22 @@
+meta {
+  name: List
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/EventTypes?page=1&pageSize=50
+  body: none
+  auth: inherit
+}
+
+params:query {
+  page: 1
+  pageSize: 50
+}
+
+assert {
+  res.status: eq 200
+  res.body.items: isArray
+  res.body.totalCount: isNumber
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Get seeded DELIVERED
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/EventTypes/by-code/DELIVERED
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.resultingStatus: eq "Delivered"
+  res.body.isTerminal: eq true
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Update
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/api/Vehicles/{{vehicleId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "VSL-{{runId}}",
+    "name": "EXAMPLE STAR II",
+    "mode": "Sea",
+    "carrierId": {{carrierId}},
+    "imoNumber": "9321483"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

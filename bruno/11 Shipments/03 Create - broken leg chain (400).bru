@@ -1,0 +1,32 @@
+meta {
+  name: Create - broken leg chain (400)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{locationId}},
+    "destinationLocationId": {{jpCustomerLocId}},
+    "legs": [
+      { "mode": "Road", "originLocationId": {{locationId}}, "destinationLocationId": {{portThId}} },
+      { "mode": "Sea", "originLocationId": {{portJpId}}, "destinationLocationId": {{jpCustomerLocId}} }
+    ]
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+docs {
+  Leg 2 must start where leg 1 ends.
+}

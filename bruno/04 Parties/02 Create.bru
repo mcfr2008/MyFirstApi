@@ -1,0 +1,36 @@
+meta {
+  name: Create
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/Parties
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CUST-{{runId}}",
+    "name": "บริษัท ตัวอย่าง จำกัด",
+    "type": "Company",
+    "taxId": "0105555000000",
+    "contactName": "คุณสมชาย",
+    "phone": "021234567",
+    "email": "ops@example.com",
+    "addressLine": "1 ถนนสุขุมวิท",
+    "district": "วัฒนา",
+    "province": "กรุงเทพมหานคร",
+    "postalCode": "10110"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("partyId", res.body.id);
+  bru.setVar("partyCode", res.body.code);
+}

@@ -1,0 +1,23 @@
+meta {
+  name: Record - both id and tag (400)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "trackedItemId": {{itemId}},
+    "tagCode": "{{itemTagCode}}",
+    "eventTypeCode": "PICKED_UP"
+  }
+}
+
+assert {
+  res.status: eq 400
+}

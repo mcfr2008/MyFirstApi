@@ -1,0 +1,22 @@
+meta {
+  name: List - filter by references
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/TrackedItems?categoryId={{categoryId}}&currentLocationId={{locationId}}&status=Registered
+  body: none
+  auth: inherit
+}
+
+params:query {
+  categoryId: {{categoryId}}
+  currentLocationId: {{locationId}}
+  status: Registered
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: gte 3
+}

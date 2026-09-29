@@ -1,0 +1,21 @@
+meta {
+  name: List
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/Vehicles?mode=Sea
+  body: none
+  auth: inherit
+}
+
+params:query {
+  mode: Sea
+}
+
+assert {
+  res.status: eq 200
+  res.body.items: isArray
+  res.body.totalCount: isNumber
+}

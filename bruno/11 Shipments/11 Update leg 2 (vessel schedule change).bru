@@ -1,0 +1,27 @@
+meta {
+  name: Update leg 2 (vessel schedule change)
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}/legs/{{leg2Id}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "carrierId": {{carrierId}},
+    "vehicleId": {{vehicleId}},
+    "voyageNumber": "246E",
+    "plannedDeparture": "2026-10-07T18:00:00+07:00",
+    "plannedArrival": "2026-10-15T08:00:00+09:00",
+    "documentType": "BillOfLading",
+    "documentNumber": "BL-{{runId}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

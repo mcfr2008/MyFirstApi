@@ -1,0 +1,23 @@
+meta {
+  name: List
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/Parties?type=Company&page=1&pageSize=20
+  body: none
+  auth: inherit
+}
+
+params:query {
+  type: Company
+  page: 1
+  pageSize: 20
+}
+
+assert {
+  res.status: eq 200
+  res.body.items: isArray
+  res.body.totalCount: isNumber
+}

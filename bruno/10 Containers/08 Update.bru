@@ -1,0 +1,25 @@
+meta {
+  name: Update
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{baseUrl}}/api/Containers/{{containerId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "{{isoContainerCode}}",
+    "type": "Container40HC",
+    "sealNumber": "SEAL-{{runId}}-B",
+    "currentLocationId": {{locationId}},
+    "maxPayloadKg": 26500
+  }
+}
+
+assert {
+  res.status: eq 200
+}

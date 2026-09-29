@@ -1,0 +1,22 @@
+meta {
+  name: Record event on archived item (400)
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "{{itemTagCode}}",
+    "eventTypeCode": "PICKED_UP"
+  }
+}
+
+assert {
+  res.status: eq 400
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Depart leg 2 (vessel)
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}/legs/{{leg2Id}}/depart
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "note": "Vessel sailed"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

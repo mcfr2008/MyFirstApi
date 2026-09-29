@@ -1,0 +1,23 @@
+meta {
+  name: Unload carton 3
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/Containers/{{containerId}}/unload
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": ["RFID-{{runId}}-3"],
+    "note": "Moved to separate shipment"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.eventsRecorded: eq 1
+}

@@ -1,0 +1,21 @@
+meta {
+  name: List
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/Containers?type=Container40HC
+  body: none
+  auth: inherit
+}
+
+params:query {
+  type: Container40HC
+}
+
+assert {
+  res.status: eq 200
+  res.body.items: isArray
+  res.body.totalCount: isNumber
+}

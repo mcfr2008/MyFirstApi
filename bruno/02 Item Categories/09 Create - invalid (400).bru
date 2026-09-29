@@ -1,0 +1,22 @@
+meta {
+  name: Create - invalid (400)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/ItemCategories
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "x",
+    "name": ""
+  }
+}
+
+assert {
+  res.status: eq 400
+}

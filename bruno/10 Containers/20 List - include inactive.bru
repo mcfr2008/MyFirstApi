@@ -1,0 +1,19 @@
+meta {
+  name: List - include inactive
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{baseUrl}}/api/Containers?includeInactive=true
+  body: none
+  auth: inherit
+}
+
+params:query {
+  includeInactive: true
+}
+
+assert {
+  res.status: eq 200
+}

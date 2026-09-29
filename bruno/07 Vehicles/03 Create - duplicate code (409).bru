@@ -1,0 +1,26 @@
+meta {
+  name: Create - duplicate code (409)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/Vehicles
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "VSL-{{runId}}",
+    "name": "EXAMPLE STAR",
+    "mode": "Sea",
+    "carrierId": {{carrierId}},
+    "imoNumber": "9321483",
+    "capacityKg": 150000000
+  }
+}
+
+assert {
+  res.status: eq 409
+}

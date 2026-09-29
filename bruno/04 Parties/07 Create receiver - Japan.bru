@@ -1,0 +1,29 @@
+meta {
+  name: Create receiver - Japan
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/Parties
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "JP-RCV-{{runId}}",
+    "name": "Tokyo Trading K.K.",
+    "type": "Company",
+    "email": "import@example.jp",
+    "country": "JP"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("receiverPartyId", res.body.id);
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Load cartons onto pallet
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/Containers/{{palletId}}/load
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": ["RFID-{{runId}}-1", "RFID-{{runId}}-2"]
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.eventsRecorded: eq 2
+}

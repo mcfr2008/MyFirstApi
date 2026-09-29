@@ -1,0 +1,20 @@
+meta {
+  name: Search by UN-LOCODE
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/Locations?search=THLCH
+  body: none
+  auth: inherit
+}
+
+params:query {
+  search: THLCH
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: gte 1
+}
