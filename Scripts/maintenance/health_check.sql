@@ -70,3 +70,12 @@ SELECT current_setting('shared_preload_libraries') LIKE '%pg_stat_statements%'
 \else
     \echo 'pg_stat_statements not enabled - skipped.'
 \endif
+
+\echo '== 6. Foreign keys without an index (deletes/updates of the referenced row scan this table) =='
+SELECT c.conrelid::regclass AS table_name, a.attname AS fk_column, c.confrelid::regclass AS references_table
+FROM pg_constraint c
+JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+JOIN pg_class t ON t.oid = c.conrelid
+WHERE c.contype = 'f' AND array_length(c.conkey, 1) = 1 AND NOT t.relispartition
+  AND NOT EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.conrelid AND i.indkey[0] = c.conkey[1])
+ORDER BY 1, 2;

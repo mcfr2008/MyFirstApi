@@ -23,7 +23,7 @@ Commands assume the Docker container `postgres-server`:
 | When | Task | How |
 |---|---|---|
 | Daily | Check that the backup succeeded; check API logs for `PartitionMaintenanceService` warnings/errors | backup tool, logs |
-| Weekly | Run the health check; watch table growth, dead rows (`dead_pct` > 20% on a big table means autovacuum isn't keeping up), and slow queries | `health_check.sql` |
+| Weekly | Run the health check; watch table growth, dead rows (`dead_pct` > 20% on a big table means autovacuum isn't keeping up), slow queries, and foreign keys without an index (section 6 should be empty) | `health_check.sql` |
 | Monthly | Confirm future partitions exist (`three_months_ahead_ok` = t) and the default partition is empty; `REINDEX INDEX CONCURRENTLY` any index that has grown far beyond its table; **test-restore a backup** | `health_check.sql`, `create_partitions.sql` |
 | Quarterly | Load test on a copy: `Scripts/dev/load_test_seed.sql` + `python3 Scripts/dev/benchmark.py`; compare with the targets below; review data retention | `Scripts/dev/` |
 
@@ -55,6 +55,8 @@ Measured on a laptop with 3M events, 200k items and 50k shipments:
 
 - **Rows in `TrackingEvents_default`.** These are events outside every monthly partition, usually heavily back-dated ones. That's fine in small numbers. To give an old month its own partition, move the rows first: create a table for the month, copy the rows, delete them from the default partition, and attach the table.
 - **Missing future partition.** Inserts still succeed (they go to the default partition), but run `create_partitions.sql` and check why the API job didn't run.
+- **Disk space not freed after a big delete.** `DELETE` leaves dead space that plain `VACUUM` reuses but doesn't give back. `VACUUM FULL <table>` gives it back but locks the table, so only run it in a maintenance window. For history, drop or detach whole partitions instead of deleting rows.
+- **Slow delete or update of a referenced row.** A foreign key without an index makes each check scan the referencing table (health check section 6). Add the index; see `Scripts/027`.
 - **Slow query.** Enable `pg_stat_statements` (`enable_pg_stat_statements.sql`), find the query in `health_check.sql` section 5, and run `EXPLAIN (ANALYZE, BUFFERS)` on it.
 
 ## Later (phase 3)

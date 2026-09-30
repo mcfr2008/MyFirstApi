@@ -30,3 +30,4 @@
 \ir 024_tracking_events_void_reason.sql
 \ir 025_tracking_events_partitioning.sql
 \ir 026_search_indexes_and_storage.sql
+\ir 027_foreign_key_indexes.sql

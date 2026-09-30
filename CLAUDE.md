@@ -97,6 +97,7 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
 - **Search indexes.** Substring search (`ILIKE '%x%'`) relies on `pg_trgm` GIN indexes (`Scripts/026`).
   - Every column in a searched OR needs one.
   - Don't OR across a join or `EXISTS`: build matching ids with `UNION` instead (see `ShipmentService.GetShipmentsAsync`).
+- **Foreign-key indexes.** Every foreign-key column needs an index. PostgreSQL doesn't create them, and a missing one turns deletes of the referenced row into full scans (`Scripts/027`, health check section 6).
 - **Master-data cache.** Event types and reason codes are read through `IMasterDataCache` (IMemoryCache, 5-minute TTL).
   - `EventTypeService` and `ReasonCodeService` invalidate it through the `MasterDataService.OnChanged` hook.
   - Cached entities are detached, so assign their ids and never attach them or use them as navigation properties.

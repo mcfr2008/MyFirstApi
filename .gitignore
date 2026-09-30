@@ -1,0 +1,20 @@
+# Build output
+bin/
+obj/
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# macOS
+.DS_Store
+
+# Tool state written into the project folder (dotnet CLI / NuGet caches, device id)
+.local/
+Library/
+
+# Bruno local secrets
+bruno/.env
