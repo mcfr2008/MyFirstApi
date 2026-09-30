@@ -1,0 +1,24 @@
+meta {
+  name: Scan container - events for everything inside
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/Containers/{{containerId}}/scan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "eventTypeCode": "DEPARTED_HUB",
+    "locationId": {{locationId}},
+    "note": "Container gated out"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.eventsRecorded: eq 3
+}

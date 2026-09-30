@@ -1,0 +1,28 @@
+meta {
+  name: Record event at the wrong location
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "{{itemTagCode}}",
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{portThId}},
+    "note": "Scanned with the wrong hub selected"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("wrongEventId", res.body.id);
+}

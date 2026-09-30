@@ -1,0 +1,38 @@
+meta {
+  name: Create - duplicate tag (409)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/TrackedItems
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "QR-{{runId}}",
+    "name": "Notebook Dell XPS 13",
+    "description": "Laptop for export",
+    "categoryId": {{categoryId}},
+    "currentLocationId": {{locationId}},
+    "ownerPartyId": {{partyId}},
+    "weightKg": 1.2,
+    "lengthCm": 30,
+    "widthCm": 20,
+    "heightCm": 2,
+    "declaredValue": 1200,
+    "currency": "USD",
+    "hsCode": "8471.30",
+    "originCountry": "CN",
+    "attributes": {
+      "serialNumber": "SN-{{runId}}",
+      "color": "silver"
+    }
+  }
+}
+
+assert {
+  res.status: eq 409
+}

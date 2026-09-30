@@ -1,0 +1,24 @@
+meta {
+  name: Edit delivered shipment (409)
+  type: http
+  seq: 29
+}
+
+put {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{locationId}},
+    "destinationLocationId": {{jpCustomerLocId}}
+  }
+}
+
+assert {
+  res.status: eq 409
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Create - duplicate code (409)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/Carriers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "SEALINE-{{runId}}",
+    "name": "Example Shipping Line",
+    "modes": ["Sea"],
+    "scacCode": "EXSL",
+    "website": "https://shipping.example.com",
+    "trackingUrlTemplate": "https://shipping.example.com/track?bl={number}"
+  }
+}
+
+assert {
+  res.status: eq 409
+}

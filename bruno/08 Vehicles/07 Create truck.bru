@@ -1,0 +1,30 @@
+meta {
+  name: Create truck
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/Vehicles
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "TRK-{{runId}}",
+    "name": "รถบรรทุก 10 ล้อ",
+    "mode": "Road",
+    "carrierId": {{roadCarrierId}},
+    "registrationNumber": "70-1234 กรุงเทพมหานคร",
+    "capacityKg": 15000
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("truckId", res.body.id);
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Reason not valid for this event (400)
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "{{itemTagCode}}",
+    "eventTypeCode": "DELIVERY_FAILED",
+    "reasonCode": "WATER_DAMAGE"
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+docs {
+  WATER_DAMAGE only applies to DAMAGED.
+}

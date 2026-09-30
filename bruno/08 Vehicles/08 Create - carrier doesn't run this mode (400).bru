@@ -1,0 +1,24 @@
+meta {
+  name: Create - carrier doesn't run this mode (400)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/Vehicles
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "BAD-VSL-{{runId}}",
+    "name": "Truck on a shipping line",
+    "mode": "Road",
+    "carrierId": {{carrierId}}
+  }
+}
+
+assert {
+  res.status: eq 400
+}

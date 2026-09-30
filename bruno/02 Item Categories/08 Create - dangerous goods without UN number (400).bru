@@ -1,0 +1,23 @@
+meta {
+  name: Create - dangerous goods without UN number (400)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/ItemCategories
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "DG-BAD-{{runId}}",
+    "name": "Missing UN number",
+    "isDangerousGoods": true
+  }
+}
+
+assert {
+  res.status: eq 400
+}

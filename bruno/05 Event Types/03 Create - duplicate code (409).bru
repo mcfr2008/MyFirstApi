@@ -1,0 +1,28 @@
+meta {
+  name: Create - duplicate code (409)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/EventTypes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CUSTOM_{{runId}}",
+    "nameTh": "ตรวจสอบพิเศษ",
+    "nameEn": "Special inspection",
+    "description": "Informational event, status unchanged",
+    "resultingStatus": null,
+    "isTerminal": false,
+    "requiresReason": false,
+    "sortOrder": 45
+  }
+}
+
+assert {
+  res.status: eq 409
+}

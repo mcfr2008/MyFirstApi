@@ -1,0 +1,26 @@
+meta {
+  name: Create - duplicate code (409)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/ItemCategories
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "ELEC-{{runId}}",
+    "name": "Electronics {{runId}}",
+    "description": "Electronic devices",
+    "requiredAttributes": ["serialNumber"],
+    "isFragile": true,
+    "requiresTemperatureControl": false
+  }
+}
+
+assert {
+  res.status: eq 409
+}

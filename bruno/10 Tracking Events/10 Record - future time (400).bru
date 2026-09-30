@@ -1,0 +1,23 @@
+meta {
+  name: Record - future time (400)
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "{{itemTagCode}}",
+    "eventTypeCode": "PICKED_UP",
+    "occurredAt": "2099-01-01T00:00:00Z"
+  }
+}
+
+assert {
+  res.status: eq 400
+}

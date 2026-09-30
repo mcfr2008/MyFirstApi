@@ -1,0 +1,25 @@
+meta {
+  name: Create - bad incoterm (400)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{locationId}},
+    "destinationLocationId": {{portThId}},
+    "incoterm": "XYZ"
+  }
+}
+
+assert {
+  res.status: eq 400
+}

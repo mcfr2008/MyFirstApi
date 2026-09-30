@@ -1,0 +1,28 @@
+meta {
+  name: Bulk create - one bad item rejects all (400)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/TrackedItems/bulk
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "items": [
+      { "name": "Good item" },
+      { "name": "Bad item", "categoryId": {{categoryId}} }
+    ]
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+docs {
+  Item 2 is missing the required `serialNumber`, so nothing is saved.
+}

@@ -1,0 +1,29 @@
+meta {
+  name: Reasons for customs hold
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/ReasonCodes?eventTypeCode=CUSTOMS_HOLD&pageSize=50
+  body: none
+  auth: inherit
+}
+
+params:query {
+  eventTypeCode: CUSTOMS_HOLD
+  pageSize: 50
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("customs reasons plus generic ones, not delivery reasons", function () {
+    const codes = res.body.items.map(r => r.code);
+    expect(codes).to.include("MISSING_DOCUMENTS");
+    expect(codes).to.include("OTHER");
+    expect(codes).to.not.include("RECIPIENT_ABSENT");
+  });
+}

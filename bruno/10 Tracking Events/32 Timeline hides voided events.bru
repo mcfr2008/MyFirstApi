@@ -1,0 +1,26 @@
+meta {
+  name: Timeline hides voided events
+  type: http
+  seq: 32
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents?trackedItemId={{itemId}}&pageSize=100
+  body: none
+  auth: inherit
+}
+
+params:query {
+  trackedItemId: {{itemId}}
+  pageSize: 100
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("no voided events by default", function () {
+    expect(res.body.items.some(e => e.isVoided)).to.equal(false);
+  });
+}

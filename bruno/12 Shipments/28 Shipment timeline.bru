@@ -1,0 +1,27 @@
+meta {
+  name: Shipment timeline
+  type: http
+  seq: 28
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents?shipmentId={{shipmentId}}&oldestFirst=true&pageSize=100&includeTotalCount=true
+  body: none
+  auth: inherit
+}
+
+params:query {
+  shipmentId: {{shipmentId}}
+  oldestFirst: true
+  pageSize: 100
+  includeTotalCount: true
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 30
+}
+
+docs {
+  3 items x 10 shipment events: 3 departures, 3 arrivals, customs hold, customs cleared, out for delivery, delivered.
+}

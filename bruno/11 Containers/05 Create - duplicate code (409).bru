@@ -1,0 +1,25 @@
+meta {
+  name: Create - duplicate code (409)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/Containers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "{{isoContainerCode}}",
+    "type": "Container40HC",
+    "sealNumber": "SEAL-{{runId}}",
+    "currentLocationId": {{locationId}},
+    "maxPayloadKg": 26500
+  }
+}
+
+assert {
+  res.status: eq 409
+}

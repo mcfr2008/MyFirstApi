@@ -1,0 +1,23 @@
+meta {
+  name: Void the lost report
+  type: http
+  seq: 29
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents/{{lostEventId}}/void
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reason": "Found behind a pallet in the hub"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.isVoided: eq true
+  res.body.voidedBy: eq "admin"
+}

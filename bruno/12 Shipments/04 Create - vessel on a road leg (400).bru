@@ -1,0 +1,27 @@
+meta {
+  name: Create - vessel on a road leg (400)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{locationId}},
+    "destinationLocationId": {{portThId}},
+    "legs": [
+      { "mode": "Road", "originLocationId": {{locationId}}, "destinationLocationId": {{portThId}}, "vehicleId": {{vehicleId}} }
+    ]
+  }
+}
+
+assert {
+  res.status: eq 400
+}

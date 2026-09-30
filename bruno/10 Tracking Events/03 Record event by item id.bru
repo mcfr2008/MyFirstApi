@@ -1,0 +1,28 @@
+meta {
+  name: Record event by item id
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "trackedItemId": {{itemId}},
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{locationId}},
+    "occurredAt": "{{$isoTimestamp}}"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+docs {
+  occurredAt accepts any ISO timestamp with offset, e.g. 2026-09-29T14:30:00+07:00.
+}

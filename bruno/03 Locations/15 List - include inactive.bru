@@ -1,0 +1,19 @@
+meta {
+  name: List - include inactive
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/Locations?includeInactive=true
+  body: none
+  auth: inherit
+}
+
+params:query {
+  includeInactive: true
+}
+
+assert {
+  res.status: eq 200
+}

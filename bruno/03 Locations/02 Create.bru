@@ -1,0 +1,39 @@
+meta {
+  name: Create
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "BKK-HUB-{{runId}}",
+    "name": "ศูนย์กระจายสินค้า บางนา",
+    "type": "Hub",
+    "addressLine": "99 ถนนบางนา-ตราด",
+    "subDistrict": "บางนาเหนือ",
+    "district": "บางนา",
+    "province": "กรุงเทพมหานคร",
+    "postalCode": "10260",
+    "country": "TH",
+    "timeZone": "Asia/Bangkok",
+    "latitude": 13.668,
+    "longitude": 100.634,
+    "contactName": "Hub Manager",
+    "contactPhone": "021234567"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("locationId", res.body.id);
+  bru.setVar("locationCode", res.body.code);
+}

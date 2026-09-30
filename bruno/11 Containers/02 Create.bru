@@ -1,0 +1,30 @@
+meta {
+  name: Create
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/Containers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "{{isoContainerCode}}",
+    "type": "Container40HC",
+    "sealNumber": "SEAL-{{runId}}",
+    "currentLocationId": {{locationId}},
+    "maxPayloadKg": 26500
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("containerId", res.body.id);
+  bru.setVar("containerCode", res.body.code);
+}

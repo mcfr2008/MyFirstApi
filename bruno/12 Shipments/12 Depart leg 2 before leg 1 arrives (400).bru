@@ -1,0 +1,19 @@
+meta {
+  name: Depart leg 2 before leg 1 arrives (400)
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}/legs/{{leg2Id}}/depart
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 400
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Depart leg 1 (truck)
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}/legs/{{leg1Id}}/depart
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "note": "Truck left Bangkok hub"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "InTransit"
+}

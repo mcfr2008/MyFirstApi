@@ -1,0 +1,21 @@
+meta {
+  name: Item now shows the wrong location
+  type: http
+  seq: 22
+}
+
+get {
+  url: {{baseUrl}}/api/TrackedItems/{{itemId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("location is the port", function () {
+    expect(res.body.currentLocation.id).to.equal(bru.getVar("portThId"));
+  });
+}

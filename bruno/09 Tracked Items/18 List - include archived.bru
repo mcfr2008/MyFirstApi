@@ -1,0 +1,19 @@
+meta {
+  name: List - include archived
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/api/TrackedItems?includeArchived=true
+  body: none
+  auth: inherit
+}
+
+params:query {
+  includeArchived: true
+}
+
+assert {
+  res.status: eq 200
+}

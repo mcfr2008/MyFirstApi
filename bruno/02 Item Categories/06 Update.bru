@@ -1,0 +1,26 @@
+meta {
+  name: Update
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/api/ItemCategories/{{categoryId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "ELEC-{{runId}}",
+    "name": "Electronics & Gadgets {{runId}}",
+    "description": "Electronic devices and accessories",
+    "requiredAttributes": ["serialNumber"],
+    "isFragile": true,
+    "requiresTemperatureControl": false
+  }
+}
+
+assert {
+  res.status: eq 200
+}

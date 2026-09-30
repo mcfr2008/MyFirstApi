@@ -1,0 +1,25 @@
+meta {
+  name: Find a load event
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents?containerId={{palletId}}&eventTypeCode=LOADED_INTO_CONTAINER
+  body: none
+  auth: inherit
+}
+
+params:query {
+  containerId: {{palletId}}
+  eventTypeCode: LOADED_INTO_CONTAINER
+}
+
+assert {
+  res.status: eq 200
+  res.body.items[0].isSystemManaged: eq true
+}
+
+script:post-response {
+  bru.setVar("managedEventId", res.body.items[0].id);
+}

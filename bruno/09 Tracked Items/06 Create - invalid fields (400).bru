@@ -1,0 +1,25 @@
+meta {
+  name: Create - invalid fields (400)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/TrackedItems
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "a b",
+    "name": "",
+    "weightKg": -1,
+    "currency": "BAHT",
+    "originCountry": "THA"
+  }
+}
+
+assert {
+  res.status: eq 400
+}

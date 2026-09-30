@@ -1,0 +1,27 @@
+meta {
+  name: Audit view includes voided events
+  type: http
+  seq: 33
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents?trackedItemId={{itemId}}&includeVoided=true&pageSize=100
+  body: none
+  auth: inherit
+}
+
+params:query {
+  trackedItemId: {{itemId}}
+  includeVoided: true
+  pageSize: 100
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("both voided events are listed", function () {
+    expect(res.body.items.filter(e => e.isVoided).length).to.equal(2);
+  });
+}

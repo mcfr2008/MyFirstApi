@@ -1,0 +1,21 @@
+meta {
+  name: Correct an already voided event (409)
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents/{{wrongEventId}}/correct
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reason": "Second attempt"
+  }
+}
+
+assert {
+  res.status: eq 409
+}

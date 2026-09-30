@@ -1,0 +1,26 @@
+meta {
+  name: Update
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/api/Parties/{{partyId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CUST-{{runId}}",
+    "name": "บริษัท ตัวอย่าง (ประเทศไทย) จำกัด",
+    "type": "Company",
+    "taxId": "0105555000000",
+    "phone": "021234567",
+    "email": "logistics@example.com"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

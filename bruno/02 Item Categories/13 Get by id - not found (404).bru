@@ -1,0 +1,15 @@
+meta {
+  name: Get by id - not found (404)
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/ItemCategories/999999
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 404
+}

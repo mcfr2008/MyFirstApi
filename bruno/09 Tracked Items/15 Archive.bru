@@ -1,0 +1,19 @@
+meta {
+  name: Archive
+  type: http
+  seq: 15
+}
+
+delete {
+  url: {{baseUrl}}/api/TrackedItems/{{itemId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}
+
+docs {
+  Soft delete: hidden from lists unless includeArchived=true; history is kept.
+}

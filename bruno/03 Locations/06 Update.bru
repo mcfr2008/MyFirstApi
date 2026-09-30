@@ -1,0 +1,28 @@
+meta {
+  name: Update
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/api/Locations/{{locationId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "BKK-HUB-{{runId}}",
+    "name": "ศูนย์กระจายสินค้า บางนา (อาคาร 2)",
+    "type": "Hub",
+    "province": "กรุงเทพมหานคร",
+    "postalCode": "10260",
+    "country": "TH",
+    "latitude": 13.668,
+    "longitude": 100.634
+  }
+}
+
+assert {
+  res.status: eq 200
+}

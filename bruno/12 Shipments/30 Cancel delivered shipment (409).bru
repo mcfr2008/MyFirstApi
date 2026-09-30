@@ -1,0 +1,15 @@
+meta {
+  name: Cancel delivered shipment (409)
+  type: http
+  seq: 30
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}/cancel
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 409
+}

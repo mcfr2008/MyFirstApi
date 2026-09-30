@@ -1,0 +1,26 @@
+meta {
+  name: Create - invalid ISO 6346 number (400)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/Containers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CSQU3054384",
+    "type": "Container20GP"
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+docs {
+  Check digit should be 3 (CSQU3054383), so this is rejected.
+}

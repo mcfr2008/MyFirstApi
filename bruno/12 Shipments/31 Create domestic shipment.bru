@@ -1,0 +1,35 @@
+meta {
+  name: Create domestic shipment
+  type: http
+  seq: 31
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{partyId}},
+    "originLocationId": {{locationId}},
+    "destinationLocationId": {{portThId}},
+    "tagCodes": ["{{itemTagCode}}"]
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.isInternational: eq false
+  res.body.customsStatus: eq "NotRequired"
+}
+
+script:post-response {
+  bru.setVar("domesticShipmentId", res.body.id);
+}
+
+docs {
+  The item's previous shipment is delivered, so it can travel again.
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Delivery failed - recipient absent
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "{{itemTagCode}}",
+    "eventTypeCode": "DELIVERY_FAILED",
+    "reasonCode": "recipient_absent",
+    "locationId": {{locationId}},
+    "note": "Nobody home, card left"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.reason.code: eq "RECIPIENT_ABSENT"
+}

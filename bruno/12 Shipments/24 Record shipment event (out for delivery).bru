@@ -1,0 +1,23 @@
+meta {
+  name: Record shipment event (out for delivery)
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}/events
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "eventTypeCode": "OUT_FOR_DELIVERY",
+    "note": "Driver on the way"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.eventsRecorded: eq 3
+}

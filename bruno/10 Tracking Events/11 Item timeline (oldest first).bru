@@ -1,0 +1,30 @@
+meta {
+  name: Item timeline (oldest first)
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents?trackedItemId={{itemId}}&oldestFirst=true&includeTotalCount=true
+  body: none
+  auth: inherit
+}
+
+params:query {
+  trackedItemId: {{itemId}}
+  oldestFirst: true
+  includeTotalCount: true
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: gte 4
+}
+
+tests {
+  test("timeline is in time order and starts with the back-dated event", function () {
+    const times = res.body.items.map(e => e.occurredAt);
+    expect(times).to.deep.equal([...times].sort());
+    expect(res.body.items[0].eventType.code).to.equal("DAMAGED");
+  });
+}

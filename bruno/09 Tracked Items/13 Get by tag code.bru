@@ -1,0 +1,19 @@
+meta {
+  name: Get by tag code
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/TrackedItems/by-tag/{{itemTagCode}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Tag codes are case-insensitive; this is what a scanner app calls.
+}

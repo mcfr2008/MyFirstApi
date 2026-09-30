@@ -1,0 +1,15 @@
+meta {
+  name: Activate
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/Containers/{{containerId}}/activate
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}

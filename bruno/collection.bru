@@ -1,0 +1,26 @@
+
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  # Thing-Tag API
+
+  1. Select the **Local** environment (top-right).
+  2. Run **01 Auth / Login** first - it stores the JWT in the `token` runtime variable,
+     which every other request sends via collection-level Bearer auth.
+  3. Event lists (/api/TrackingEvents) use cursor paging: pass `nextCursor` back as
+     `?cursor=`; add `includeTotalCount=true` only when a total is needed.
+  4. Or run the whole collection with the Runner (folders in order): requests are
+     chained through runtime variables (ids created earlier are reused later) and
+     codes include a per-run `runId`, so the collection can be re-run against the
+     same database.
+
+  The Shipments folder walks a full multimodal journey:
+  Bangkok hub -> (truck) -> Laem Chabang port -> (vessel) -> Tokyo port -> (van) -> customer,
+  including a customs hold/clear and final delivery.
+}

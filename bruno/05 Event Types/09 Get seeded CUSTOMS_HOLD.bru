@@ -1,0 +1,17 @@
+meta {
+  name: Get seeded CUSTOMS_HOLD
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/EventTypes/by-code/CUSTOMS_HOLD
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.resultingStatus: eq "OnHold"
+  res.body.requiresReason: eq true
+}

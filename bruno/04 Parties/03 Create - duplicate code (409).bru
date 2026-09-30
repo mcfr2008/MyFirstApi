@@ -1,0 +1,31 @@
+meta {
+  name: Create - duplicate code (409)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/Parties
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CUST-{{runId}}",
+    "name": "บริษัท ตัวอย่าง จำกัด",
+    "type": "Company",
+    "taxId": "0105555000000",
+    "contactName": "คุณสมชาย",
+    "phone": "021234567",
+    "email": "ops@example.com",
+    "addressLine": "1 ถนนสุขุมวิท",
+    "district": "วัฒนา",
+    "province": "กรุงเทพมหานคร",
+    "postalCode": "10110"
+  }
+}
+
+assert {
+  res.status: eq 409
+}

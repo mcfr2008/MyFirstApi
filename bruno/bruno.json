@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Thing-Tag API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

@@ -1,0 +1,23 @@
+meta {
+  name: Customs cleared
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments/{{shipmentId}}/customs
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "status": "Cleared",
+    "note": "Documents corrected"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.customsStatus: eq "Cleared"
+}

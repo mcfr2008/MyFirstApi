@@ -1,0 +1,16 @@
+meta {
+  name: Item is lost
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{baseUrl}}/api/TrackedItems/{{itemId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "Lost"
+}

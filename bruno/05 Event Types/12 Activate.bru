@@ -1,0 +1,15 @@
+meta {
+  name: Activate
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/EventTypes/{{eventTypeId}}/activate
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}

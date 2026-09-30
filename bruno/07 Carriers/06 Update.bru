@@ -1,0 +1,25 @@
+meta {
+  name: Update
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/api/Carriers/{{carrierId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "SEALINE-{{runId}}",
+    "name": "Example Shipping Line Co., Ltd.",
+    "modes": ["Sea"],
+    "scacCode": "EXSL",
+    "trackingUrlTemplate": "https://shipping.example.com/track?bl={number}"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Create - item already in open shipment (409)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{locationId}},
+    "destinationLocationId": {{jpCustomerLocId}},
+    "tagCodes": ["{{itemTagCode}}"]
+  }
+}
+
+assert {
+  res.status: eq 409
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Get by id
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/Containers/{{containerId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}

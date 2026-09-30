@@ -1,0 +1,31 @@
+meta {
+  name: Create port - Tokyo
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "JPTYO-{{runId}}",
+    "name": "Port of Tokyo",
+    "type": "Port",
+    "country": "JP",
+    "unLocode": "JPTYO",
+    "timeZone": "Asia/Tokyo"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.timeZone: eq "Asia/Tokyo"
+}
+
+script:post-response {
+  bru.setVar("portJpId", res.body.id);
+}

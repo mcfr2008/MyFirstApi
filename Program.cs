@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using MyFirstApi.Authorization;
 using MyFirstApi.Data;
+using MyFirstApi.Exceptions;
 using MyFirstApi.Interfaces;
 using MyFirstApi.Services;
 using System.Text;
@@ -38,11 +39,34 @@ builder.Services.AddSwaggerGen(options =>
 // 3. ตั้งค่า Database Connection
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString,
+        // Needed to map Dictionary properties (TrackedItem.Attributes) to jsonb.
+        npgsql => npgsql.ConfigureDataSource(dataSource => dataSource.EnableDynamicJson())));
 
 // 4. ลงทะเบียน Dependency Injection (DI) สำหรับ Service Pattern
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ITrackedItemService, TrackedItemService>();
+builder.Services.AddScoped<IItemCategoryService, ItemCategoryService>();
+builder.Services.AddScoped<ILocationService, LocationService>();
+builder.Services.AddScoped<IPartyService, PartyService>();
+builder.Services.AddScoped<IEventTypeService, EventTypeService>();
+builder.Services.AddScoped<ICarrierService, CarrierService>();
+builder.Services.AddScoped<IVehicleService, VehicleService>();
+builder.Services.AddScoped<IContainerService, ContainerService>();
+builder.Services.AddScoped<IReasonCodeService, ReasonCodeService>();
+builder.Services.AddScoped<ITrackingEventRecorder, TrackingEventRecorder>();
+builder.Services.AddScoped<ITrackingEventService, TrackingEventService>();
+builder.Services.AddScoped<IShipmentService, ShipmentService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IMasterDataCache, MasterDataCache>();
+builder.Services.AddHostedService<PartitionMaintenanceService>();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+
+// Turns ConflictException / BusinessRuleException from services into 409 / 400.
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 // Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"];
@@ -80,6 +104,8 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

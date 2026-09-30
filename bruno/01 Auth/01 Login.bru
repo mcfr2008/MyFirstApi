@@ -1,0 +1,49 @@
+meta {
+  name: Login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/Auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{username}}",
+    "password": "{{password}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.token: isString
+}
+
+script:post-response {
+  bru.setVar("token", res.body.token);
+  // Short unique suffix so codes created by this run don't clash with earlier runs.
+  bru.setVar("runId", Date.now().toString(36).toUpperCase());
+
+  // A valid ISO 6346 container number for this run: owner TTG + U + 6 digits + check digit.
+  const base = "TTGU" + String(Date.now() % 1000000).padStart(6, "0");
+  let sum = 0;
+  for (let i = 0; i < 10; i++) {
+    const c = base[i];
+    let v;
+    if (c >= "0" && c <= "9") {
+      v = Number(c);
+    } else {
+      // Letters count up from A=10, skipping multiples of 11.
+      v = 10;
+      for (let l = 65; l < c.charCodeAt(0); l++) {
+        v++;
+        if (v % 11 === 0) v++;
+      }
+    }
+    sum += v * Math.pow(2, i);
+  }
+  bru.setVar("isoContainerCode", base + (sum % 11 % 10));
+}
