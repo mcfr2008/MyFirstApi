@@ -1,17 +1,18 @@
 meta {
   name: No token (401)
   type: http
-  seq: 3
+  seq: 4
 }
 
 get {
-  url: {{baseUrl}}/api/TrackedItems
+  url: {{baseUrl}}/api/v1/TrackedItems
   body: none
   auth: none
 }
 
 assert {
   res.status: eq 401
+  res.body.code: eq "UNAUTHORIZED"
 }
 
 docs {

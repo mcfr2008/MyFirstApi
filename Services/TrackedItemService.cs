@@ -124,8 +124,7 @@ public class TrackedItemService : ITrackedItemService
             .ToList();
         if (duplicatesInRequest.Count > 0)
         {
-            throw new ConflictException(
-                $"Tag codes appear more than once in the request: {string.Join(", ", duplicatesInRequest)}");
+            throw Errors.TagCodesDuplicated(duplicatesInRequest);
         }
 
         var existing = await _context.TrackedItems
@@ -134,7 +133,7 @@ public class TrackedItemService : ITrackedItemService
             .ToListAsync();
         if (existing.Count > 0)
         {
-            throw new ConflictException($"Tag codes already exist: {string.Join(", ", existing)}");
+            throw Errors.TagCodeExists(existing);
         }
 
         var references = await LoadReferencesAsync(requests);
@@ -145,7 +144,7 @@ public class TrackedItemService : ITrackedItemService
         for (var index = 0; index < requests.Count; index++)
         {
             var request = requests[index];
-            var errorPrefix = requests.Count > 1 ? $"Item {index + 1}: " : string.Empty;
+            var scope = requests.Count > 1 ? ErrorScope.Item(index + 1) : null;
 
             var item = new TrackedItem
             {
@@ -158,13 +157,13 @@ public class TrackedItemService : ITrackedItemService
                 CreatedBy = _currentUser.Username
             };
             ApplyFields(item, request);
-            AssignReferences(item, request, request.CurrentLocationId, references, errorPrefix);
+            AssignReferences(item, request, request.CurrentLocationId, references, scope);
             items.Add(item);
         }
 
         _context.TrackedItems.AddRange(items);
         await RecordRegisteredEventsAsync(items, now);
-        await _context.SaveChangesOrConflictAsync("Tag code already exists.");
+        await _context.SaveChangesOrConflictAsync(Errors.TagCodeExists(items.Select(i => i.TagCode)));
 
         return items.Select(TrackedItemResponse.From).ToList();
     }
@@ -179,17 +178,17 @@ public class TrackedItemService : ITrackedItemService
         if (tagCode != item.TagCode &&
             await _context.TrackedItems.AnyAsync(i => i.TagCode == tagCode))
         {
-            throw new ConflictException($"Tag code already exists: {tagCode}");
+            throw Errors.TagCodeExists([tagCode]);
         }
 
         var references = await LoadReferencesAsync([request]);
 
         item.TagCode = tagCode;
         ApplyFields(item, request);
-        AssignReferences(item, request, null, references, string.Empty);
+        AssignReferences(item, request, null, references, null);
         item.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesOrConflictAsync($"Tag code already exists: {tagCode}");
+        await _context.SaveChangesOrConflictAsync(Errors.TagCodeExists([tagCode]));
         return TrackedItemResponse.From(item);
     }
 
@@ -256,34 +255,34 @@ public class TrackedItemService : ITrackedItemService
     }
 
     private static void AssignReferences(
-        TrackedItem item, TrackedItemFields fields, int? locationId, ReferenceLookup references, string errorPrefix)
+        TrackedItem item, TrackedItemFields fields, int? locationId, ReferenceLookup references, ErrorScope? scope)
     {
-        item.Category = Resolve(references.Categories, fields.CategoryId, item.CategoryId, "Category", errorPrefix);
+        item.Category = Resolve(references.Categories, fields.CategoryId, item.CategoryId, "categoryId", scope);
         item.CategoryId = item.Category?.Id;
 
         // The location is only set at creation; later it changes through tracking events.
         if (item.Id == 0)
         {
-            item.CurrentLocation = Resolve(references.Locations, locationId, item.CurrentLocationId, "Location", errorPrefix);
+            item.CurrentLocation = Resolve(references.Locations, locationId, item.CurrentLocationId, "currentLocationId", scope);
             item.CurrentLocationId = item.CurrentLocation?.Id;
         }
 
-        item.OwnerParty = Resolve(references.Parties, fields.OwnerPartyId, item.OwnerPartyId, "Party", errorPrefix);
+        item.OwnerParty = Resolve(references.Parties, fields.OwnerPartyId, item.OwnerPartyId, "ownerPartyId", scope);
         item.OwnerPartyId = item.OwnerParty?.Id;
 
-        EnsureRequiredAttributes(item, errorPrefix);
+        EnsureRequiredAttributes(item, scope);
     }
 
     private static T? Resolve<T>(
-        Dictionary<int, T> lookup, int? id, int? currentId, string label, string errorPrefix)
+        Dictionary<int, T> lookup, int? id, int? currentId, string field, ErrorScope? scope)
         where T : class, IMasterData
     {
         if (id == null) return null;
 
-        return ReferenceResolver.Check(lookup.GetValueOrDefault(id.Value), id.Value, currentId, label, errorPrefix);
+        return ReferenceResolver.Check(lookup.GetValueOrDefault(id.Value), id.Value, currentId, field, scope);
     }
 
-    private static void EnsureRequiredAttributes(TrackedItem item, string errorPrefix)
+    private static void EnsureRequiredAttributes(TrackedItem item, ErrorScope? scope)
     {
         if (item.Category == null) return;
 
@@ -292,8 +291,7 @@ public class TrackedItemService : ITrackedItemService
             .ToList();
         if (missing.Count > 0)
         {
-            throw new BusinessRuleException(
-                $"{errorPrefix}Category {item.Category.Code} requires attributes: {string.Join(", ", missing)}");
+            throw Errors.MissingRequiredAttributes(item.Category.Code, missing).In(scope);
         }
     }
 
@@ -314,7 +312,7 @@ public class TrackedItemService : ITrackedItemService
     {
         if (item.IsArchived)
         {
-            throw new ConflictException("Item is archived. Restore it before making changes.");
+            throw Errors.ItemArchived();
         }
     }
 

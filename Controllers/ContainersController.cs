@@ -4,7 +4,7 @@ using MyFirstApi.Interfaces;
 
 namespace MyFirstApi.Controllers;
 
-[Route("api/[controller]")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class ContainersController : MasterDataController<ContainerRequest, ContainerResponse, ContainerQuery>
 {
     private readonly IContainerService _containerService;

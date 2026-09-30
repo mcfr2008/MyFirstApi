@@ -17,9 +17,10 @@ dotnet restore
 dotnet build
 dotnet run                      # http://localhost:5106 (profile "http")
 dotnet run --launch-profile https   # https://localhost:7195
+docker compose up --build           # full stack: PostgreSQL (host port 5433) + scripts + API on :5106
 ```
 
-- Swagger UI (`/swagger`) and OpenAPI (`/openapi/v1.json`) are only mapped in the Development environment. Swagger has a Bearer "Authorize" button; get a token from `POST /api/Auth/login`.
+- Swagger UI (`/swagger`) and OpenAPI (`/openapi/v1.json`) are only mapped in the Development environment. Swagger has a Bearer "Authorize" button; get a token from `POST /api/v1/Auth/login`.
 - Database schema is **not** managed by EF Core migrations. It's created from hand-written SQL scripts:
   ```bash
   psql -h localhost -p 5432 -U postgres -d myfirstapi_db -f Scripts/run_all.sql
@@ -35,7 +36,15 @@ dotnet run --launch-profile https   # https://localhost:7195
 
 ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT bearer auth. Layering: `Controllers/` → `Interfaces/` + `Services/` (registered as scoped in `Program.cs`) → `Data/AppDbContext.cs` → PostgreSQL. The older `ProductsController` binds directly to `Models/` entities. Thing-Tag features follow a stricter pattern, with `TrackedItemsController` as the reference:
 - Request/response DTOs live in `Dtos/`. Validation uses DataAnnotations/`IValidatableObject`, and `[ApiController]` returns 400 ProblemDetails automatically. Services map entities to response DTOs, so entities are never returned directly.
-- Services throw `Exceptions/ConflictException` for data clashes and `Exceptions/BusinessRuleException` for business-rule failures. `Exceptions/ApiExceptionHandler` (registered in `Program.cs`) turns these into `409` and `400` responses shaped as `{ message }`, so controllers have no try/catch.
+- **Errors.** Services throw `ApiException`s created by the factory methods in `Exceptions/Errors.cs`, e.g. `throw Errors.TagCodeExists(codes)`.
+  - `Errors.cs` is the error catalog. Each `ErrorDefinition` has a stable code, an HTTP status and `{placeholder}` templates in **English and Thai**. Add new errors there; never throw ad-hoc messages.
+  - `ApiExceptionHandler` writes ProblemDetails with `detail` (English), `code`, `args` and an optional `scope`. `.In(ErrorScope.Item(n) / Leg(n))` tags which entry of a batch request failed.
+  - `Program.cs` `CustomizeProblemDetails` adds codes to framework errors (`VALIDATION_FAILED`, `UNAUTHORIZED`, `NOT_FOUND`, ...), and `UseStatusCodePages` gives empty 401/404 responses a body.
+  - `GET /api/v1/ErrorCodes` (anonymous) serves the catalog so the frontend can translate.
+  - `ReferenceResolver` "field" arguments are request property names (`categoryId`), so the UI can highlight the right input.
+  - Controllers have no try/catch.
+- **Versioning.** Routes are versioned with Asp.Versioning (URL segment). New controllers use `[Route("api/v{version:apiVersion}/[controller]")]`, and controllers without `[ApiVersion]` default to 1.0. Breaking changes go into a new version rather than changing v1.
+- **CORS.** Policy "Frontend" allows the origins in `Cors:AllowedOrigins` (dev servers are listed in `appsettings.Development.json`, and the list is empty in `appsettings.json`).
 - Enums are serialized as strings (`[JsonConverter(typeof(JsonStringEnumConverter<T>))]` on the enum) and stored as strings (`HasConversion<string>()`).
 - Lists are paged with `PagedResult<T>`. Items are archived (`IsArchived`) instead of deleted so tracking history survives.
 - **Master data** (`ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`) is built on shared generic bases: `Services/MasterDataService<...>` and `Controllers/MasterDataController<...>`.
@@ -54,7 +63,7 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
   - `EventType.ResultingStatus` decides the new status (null means the event is informational).
   - An event only updates the item if its `OccurredAt >= item.LastEventAt`. A back-dated event is kept in the history without rewinding the item.
 - **Mistakes are voided, not deleted.**
-  - `POST /api/TrackingEvents/{id}/void` flags the event (`IsVoided`, with who/when/why). `/correct` voids it and records a replacement linked by `ReplacesEventId`.
+  - `POST /api/v1/TrackingEvents/{id}/void` flags the event (`IsVoided`, with who/when/why). `/correct` voids it and records a replacement linked by `ReplacesEventId`.
   - Both call `ITrackingEventRecorder.RecalculateItemStateAsync`, which rebuilds the item's status and location from its remaining non-voided events, including unsaved ones in the change tracker.
   - Voided events are hidden from lists unless `includeVoided=true`.
   - Events that mirror a shipment or container operation (`IsSystemManaged`: leg depart/arrive, customs, delivery, container load/unload) can't be voided. They must be undone through that operation, so shipment and container state stay consistent.
@@ -90,7 +99,7 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
   - The PK is `("Id", "OccurredAt")` and there's no DB foreign key for `ReplacesEventId`, but EF still models `Id` as the key.
   - A lookup by `Id` alone probes every partition. When the time is known, also filter on `OccurredAt` (see `TrackingEventService.GetByIdsAsync`).
   - `PartitionMaintenanceService` (a hosted service) creates partitions 3 months ahead at startup and daily.
-- **Cursor paging.** `GET /api/TrackingEvents` returns `CursorPagedResult` (`nextCursor`/`hasMore`) instead of page numbers.
+- **Cursor paging.** `GET /api/v1/TrackingEvents` returns `CursorPagedResult` (`nextCursor`/`hasMore`) instead of page numbers.
   - The cursor is a base64url-encoded `"<OccurredAt ticks>_<Id>"`.
   - `totalCount` is only computed with `includeTotalCount=true`.
   - Use this pattern for any other list that can grow to millions of rows.
@@ -130,7 +139,8 @@ Adding a new protected endpoint (once permissions are being applied) means: add 
 
 ## Repo notes
 
-- `bin/` and `obj/` are tracked in git (no `.gitignore`), so builds produce noisy diffs. Don't stage them unless asked.
+- `.gitignore` excludes `bin/`, `obj/`, IDE files, `.DS_Store` and dotnet tool state (`.local/`, `Library/`).
+- `README.md` is the human-facing documentation (features, API overview, setup, scripts, testing). Update it together with this file whenever features, endpoints, scripts or setup steps change.
 - Package versions are mixed: .NET 10 / ASP.NET Core 10.x packages alongside EF Core 9.x and Npgsql 9.x.
 - Some comments in `Program.cs` are in Thai.
 - Commit messages follow a Conventional Commits-like `type : message` style (e.g. `feat : Auth`, `refactor : README`).

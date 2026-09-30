@@ -24,7 +24,7 @@ public class ShipmentLegRequest : IValidatableObject
 
     public int? CarrierId { get; set; }
 
-    // A vehicle from /api/Vehicles, or VehicleName as text for outside carriers.
+    // A vehicle from /api/v1/Vehicles, or VehicleName as text for outside carriers.
     public int? VehicleId { get; set; }
 
     [StringLength(255)]

@@ -21,7 +21,7 @@ public class EventTypeRequest : MasterDataRequest
 
     public bool IsTerminal { get; set; }
 
-    // Recording this event needs a reasonCode (see /api/ReasonCodes).
+    // Recording this event needs a reasonCode (see /api/v1/ReasonCodes).
     public bool RequiresReason { get; set; }
 
     public int SortOrder { get; set; }

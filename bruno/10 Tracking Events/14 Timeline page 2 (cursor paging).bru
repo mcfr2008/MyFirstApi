@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/TrackingEvents?trackedItemId={{itemId}}&oldestFirst=true&pageSize=2&cursor={{eventsCursor}}
+  url: {{baseUrl}}/api/v1/TrackingEvents?trackedItemId={{itemId}}&oldestFirst=true&pageSize=2&cursor={{eventsCursor}}
   body: none
   auth: inherit
 }

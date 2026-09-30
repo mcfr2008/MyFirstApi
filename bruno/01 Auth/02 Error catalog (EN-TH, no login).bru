@@ -1,0 +1,28 @@
+meta {
+  name: Error catalog (EN-TH, no login)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/ErrorCodes
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body: isArray
+}
+
+tests {
+  test("has Thai and English templates", function () {
+    const entry = res.body.find(e => e.code === "ITEM_MISSING_REQUIRED_ATTRIBUTES");
+    expect(entry.en).to.contain("{category}");
+    expect(entry.th).to.contain("{category}");
+  });
+}
+
+docs {
+  Every error response has a stable `code` (+ `args`); this list gives English and Thai templates for each code.
+}

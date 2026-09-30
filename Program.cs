@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -66,7 +67,59 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // Turns ConflictException / BusinessRuleException from services into 409 / 400.
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
-builder.Services.AddProblemDetails();
+
+// Every error response is ProblemDetails (RFC 9457) with a stable "code" the
+// frontend can translate (see Exceptions/Errors.cs and GET /api/v1/ErrorCodes).
+// ApiExceptionHandler sets code/args for business errors; this fills in the
+// code for errors produced by the framework (validation, 401, 404, ...).
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        var extensions = context.ProblemDetails.Extensions;
+        if (extensions.ContainsKey("code")) return;
+
+        extensions["code"] = context.ProblemDetails switch
+        {
+            Microsoft.AspNetCore.Mvc.ValidationProblemDetails => Errors.ValidationFailed.Code,
+            { Status: StatusCodes.Status401Unauthorized } => Errors.Unauthorized.Code,
+            { Status: StatusCodes.Status403Forbidden } => Errors.Forbidden.Code,
+            { Status: StatusCodes.Status404NotFound } => Errors.NotFound.Code,
+            { Status: >= 500 } => Errors.InternalError.Code,
+            { Status: var status } => $"HTTP_{status}"
+        };
+    };
+});
+
+// URL-segment versioning: /api/v1/... Controllers without [ApiVersion] are v1.
+// Breaking changes go into a new version so existing apps keep working.
+builder.Services.AddApiVersioning(options =>
+    {
+        options.DefaultApiVersion = new ApiVersion(1, 0);
+        options.AssumeDefaultVersionWhenUnspecified = true;
+        options.ReportApiVersions = true;
+        options.ApiVersionReader = new UrlSegmentApiVersionReader();
+    })
+    .AddMvc()
+    .AddApiExplorer(options =>
+    {
+        // Swagger document "v1"; the {version} route segment is filled in.
+        options.GroupNameFormat = "'v'VVV";
+        options.SubstituteApiVersionInUrl = true;
+    });
+
+// Browsers only let the frontend call the API from origins listed in
+// Cors:AllowedOrigins (appsettings.Development.json has common dev servers).
+const string FrontendCorsPolicy = "Frontend";
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(FrontendCorsPolicy, policy => policy
+        .WithOrigins(corsOrigins)
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .WithExposedHeaders("Location", "api-supported-versions"));
+});
 
 // Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"];
@@ -106,6 +159,8 @@ builder.Services.AddAuthorization(options =>
 var app = builder.Build();
 
 app.UseExceptionHandler();
+// Gives empty error responses (e.g. 401 from JWT, unknown routes) a ProblemDetails body.
+app.UseStatusCodePages();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -116,6 +171,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors(FrontendCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();

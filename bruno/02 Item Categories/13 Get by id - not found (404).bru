@@ -5,11 +5,12 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/ItemCategories/999999
+  url: {{baseUrl}}/api/v1/ItemCategories/999999
   body: none
   auth: inherit
 }
 
 assert {
   res.status: eq 404
+  res.body.code: eq "NOT_FOUND"
 }

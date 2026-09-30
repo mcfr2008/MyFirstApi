@@ -64,7 +64,7 @@ public class ReasonCodeService
         var unknown = codes.Except(known).ToList();
         if (unknown.Count > 0)
         {
-            throw new BusinessRuleException($"Unknown event type codes: {string.Join(", ", unknown)}");
+            throw Errors.UnknownEventTypeCodes(unknown);
         }
     }
 
