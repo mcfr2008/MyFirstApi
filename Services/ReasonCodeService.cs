@@ -11,9 +11,14 @@ namespace MyFirstApi.Services;
 public class ReasonCodeService
     : MasterDataService<ReasonCode, ReasonCodeRequest, ReasonCodeResponse, ReasonCodeQuery>, IReasonCodeService
 {
-    public ReasonCodeService(AppDbContext context) : base(context)
+    private readonly IMasterDataCache _cache;
+
+    public ReasonCodeService(AppDbContext context, IMasterDataCache cache) : base(context)
     {
+        _cache = cache;
     }
+
+    protected override void OnChanged() => _cache.Invalidate();
 
     protected override DbSet<ReasonCode> Set => Context.ReasonCodes;
 

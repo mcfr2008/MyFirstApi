@@ -10,17 +10,19 @@ public class TrackingEventRecorder : ITrackingEventRecorder
 {
     private readonly AppDbContext _context;
     private readonly ICurrentUser _currentUser;
+    private readonly IMasterDataCache _cache;
 
-    public TrackingEventRecorder(AppDbContext context, ICurrentUser currentUser)
+    public TrackingEventRecorder(AppDbContext context, ICurrentUser currentUser, IMasterDataCache cache)
     {
         _context = context;
         _currentUser = currentUser;
+        _cache = cache;
     }
 
     public async Task<EventType> GetEventTypeAsync(string code)
     {
         var normalized = QueryHelpers.NormalizeCode(code);
-        var eventType = await _context.EventTypes.FirstOrDefaultAsync(e => e.Code == normalized);
+        var eventType = await _cache.FindEventTypeAsync(normalized);
 
         if (eventType == null)
         {
@@ -109,7 +111,8 @@ public class TrackingEventRecorder : ITrackingEventRecorder
             var trackingEvent = new TrackingEvent
             {
                 TrackedItem = item,
-                EventType = eventType,
+                // Id only: eventType may be a detached cached instance.
+                EventTypeId = eventType.Id,
                 ReasonCodeId = reason?.Id,
                 IsSystemManaged = context.IsSystemManaged,
                 LocationId = context.LocationId,
@@ -144,16 +147,22 @@ public class TrackingEventRecorder : ITrackingEventRecorder
             .Where(entry => entry.State == EntityState.Added && entry.Entity.TrackedItem == item)
             .Select(entry => entry.Entity);
 
-        var timeline = saved.Where(e => !e.IsVoided)
-            .Concat(unsaved)
-            .OrderBy(e => e.OccurredAt)
-            .ThenBy(e => e.Id == 0 ? long.MaxValue : e.Id)
+        var timeline = new List<(TrackingEvent Event, ItemStatus? ResultingStatus)>();
+        foreach (var trackingEvent in saved.Where(e => !e.IsVoided).Concat(unsaved))
+        {
+            // Unsaved events only carry EventTypeId (see AddEventsAsync).
+            var eventType = trackingEvent.EventType ?? await _cache.FindEventTypeAsync(trackingEvent.EventTypeId);
+            timeline.Add((trackingEvent, eventType?.ResultingStatus));
+        }
+        timeline = timeline
+            .OrderBy(t => t.Event.OccurredAt)
+            .ThenBy(t => t.Event.Id == 0 ? long.MaxValue : t.Event.Id)
             .ToList();
 
-        item.Status = timeline.LastOrDefault(e => e.EventType.ResultingStatus.HasValue)?.EventType.ResultingStatus
-                      ?? ItemStatus.Registered;
-        item.CurrentLocationId = timeline.LastOrDefault(e => e.LocationId.HasValue)?.LocationId ?? item.CurrentLocationId;
-        item.LastEventAt = timeline.LastOrDefault()?.OccurredAt;
+        item.Status = timeline.LastOrDefault(t => t.ResultingStatus.HasValue).ResultingStatus ?? ItemStatus.Registered;
+        item.CurrentLocationId = timeline.LastOrDefault(t => t.Event.LocationId.HasValue).Event?.LocationId
+                                 ?? item.CurrentLocationId;
+        item.LastEventAt = timeline.Count > 0 ? timeline[^1].Event.OccurredAt : null;
         item.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -170,7 +179,7 @@ public class TrackingEventRecorder : ITrackingEventRecorder
         }
 
         var code = QueryHelpers.NormalizeCode(context.ReasonCode);
-        var reason = await _context.ReasonCodes.AsNoTracking().FirstOrDefaultAsync(r => r.Code == code);
+        var reason = await _cache.FindReasonCodeAsync(code);
         if (reason == null)
         {
             throw new BusinessRuleException($"Reason code {code} does not exist.");

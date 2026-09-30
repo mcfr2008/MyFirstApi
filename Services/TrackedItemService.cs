@@ -20,12 +20,15 @@ public class TrackedItemService : ITrackedItemService
     private readonly AppDbContext _context;
     private readonly ITrackingEventRecorder _recorder;
     private readonly ICurrentUser _currentUser;
+    private readonly IMasterDataCache _cache;
 
-    public TrackedItemService(AppDbContext context, ITrackingEventRecorder recorder, ICurrentUser currentUser)
+    public TrackedItemService(
+        AppDbContext context, ITrackingEventRecorder recorder, ICurrentUser currentUser, IMasterDataCache cache)
     {
         _context = context;
         _recorder = recorder;
         _currentUser = currentUser;
+        _cache = cache;
     }
 
     public async Task<PagedResult<TrackedItemResponse>> GetItemsAsync(TrackedItemQuery query)
@@ -297,9 +300,8 @@ public class TrackedItemService : ITrackedItemService
     // Starts each item's timeline. Skipped if the REGISTERED event type was removed.
     private async Task RecordRegisteredEventsAsync(List<TrackedItem> items, DateTime occurredAt)
     {
-        var registered = await _context.EventTypes
-            .FirstOrDefaultAsync(e => e.Code == RegisteredEventCode && e.IsActive);
-        if (registered == null) return;
+        var registered = await _cache.FindEventTypeAsync(RegisteredEventCode);
+        if (registered is not { IsActive: true }) return;
 
         foreach (var group in items.GroupBy(i => i.CurrentLocationId))
         {

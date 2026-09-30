@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using MyFirstApi.Data;
 using MyFirstApi.Dtos;
@@ -52,13 +53,17 @@ public class TrackingEventService : ITrackingEventService
         VoidedBy = e.VoidedBy,
         VoidReason = e.VoidReason,
         ReplacesEventId = e.ReplacesEventId,
-        ReplacedByEventId = _context.TrackingEvents
-            .Where(r => r.ReplacesEventId == e.Id)
-            .Select(r => (long?)r.Id)
-            .FirstOrDefault()
+        // Only voided events can have a replacement; the CASE skips the lookup
+        // (which touches every partition) for all other rows.
+        ReplacedByEventId = e.IsVoided
+            ? _context.TrackingEvents
+                .Where(r => r.ReplacesEventId == e.Id)
+                .Select(r => (long?)r.Id)
+                .FirstOrDefault()
+            : null
     };
 
-    public async Task<PagedResult<TrackingEventResponse>> GetEventsAsync(TrackingEventQuery query)
+    public async Task<CursorPagedResult<TrackingEventResponse>> GetEventsAsync(TrackingEventQuery query)
     {
         var events = _context.TrackingEvents.AsNoTracking();
 
@@ -108,24 +113,60 @@ public class TrackingEventService : ITrackingEventService
             events = events.Where(e => e.OccurredAt <= to);
         }
 
+        int? totalCount = query.IncludeTotalCount ? await events.CountAsync() : null;
+
+        if (!string.IsNullOrWhiteSpace(query.Cursor))
+        {
+            var (afterTime, afterId) = DecodeCursor(query.Cursor);
+            events = query.OldestFirst
+                ? events.Where(e => e.OccurredAt > afterTime || (e.OccurredAt == afterTime && e.Id > afterId))
+                : events.Where(e => e.OccurredAt < afterTime || (e.OccurredAt == afterTime && e.Id < afterId));
+        }
+
         var ordered = query.OldestFirst
             ? events.OrderBy(e => e.OccurredAt).ThenBy(e => e.Id)
             : events.OrderByDescending(e => e.OccurredAt).ThenByDescending(e => e.Id);
 
-        var totalCount = await events.CountAsync();
+        // One extra row tells us whether there is a next page without counting.
         var page = await ordered
-            .Skip((query.Page - 1) * query.PageSize)
-            .Take(query.PageSize)
+            .Take(query.PageSize + 1)
             .Select(Projection)
             .ToListAsync();
 
-        return new PagedResult<TrackingEventResponse>
+        var hasMore = page.Count > query.PageSize;
+        if (hasMore)
+        {
+            page.RemoveAt(page.Count - 1);
+        }
+
+        return new CursorPagedResult<TrackingEventResponse>
         {
             Items = page,
-            Page = query.Page,
             PageSize = query.PageSize,
+            HasMore = hasMore,
+            NextCursor = hasMore ? EncodeCursor(page[^1].OccurredAt, page[^1].Id) : null,
             TotalCount = totalCount
         };
+    }
+
+    // Cursor = position of the last row returned: "<OccurredAt ticks>_<Id>", base64url-encoded.
+    private static string EncodeCursor(DateTime occurredAt, long id) =>
+        Convert.ToBase64String(Encoding.UTF8.GetBytes($"{occurredAt.Ticks}_{id}"))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    private static (DateTime OccurredAt, long Id) DecodeCursor(string cursor)
+    {
+        try
+        {
+            var base64 = cursor.Replace('-', '+').Replace('_', '/');
+            base64 = base64.PadRight(base64.Length + (4 - base64.Length % 4) % 4, '=');
+            var parts = Encoding.UTF8.GetString(Convert.FromBase64String(base64)).Split('_');
+            return (new DateTime(long.Parse(parts[0]), DateTimeKind.Utc), long.Parse(parts[1]));
+        }
+        catch (Exception ex) when (ex is FormatException or IndexOutOfRangeException or ArgumentOutOfRangeException or OverflowException)
+        {
+            throw new BusinessRuleException("Invalid cursor. Use nextCursor from the previous page.");
+        }
     }
 
     public async Task<TrackingEventResponse> RecordAsync(RecordEventRequest request)
@@ -161,7 +202,7 @@ public class TrackingEventService : ITrackingEventService
         var events = await _recorder.AddEventsAsync(items, eventType, context);
         await _context.SaveChangesAsync();
 
-        return await GetByIdsAsync(events.Select(e => e.Id).ToList());
+        return await GetByIdsAsync(events.Select(e => e.Id).ToList(), context.OccurredAt);
     }
 
     public async Task<TrackingEventResponse?> GetEventByIdAsync(long id) =>
@@ -246,10 +287,12 @@ public class TrackingEventService : ITrackingEventService
         trackingEvent.VoidReason = reason.Trim();
     }
 
-    private async Task<List<TrackingEventResponse>> GetByIdsAsync(List<long> ids)
+    // occurredAt lets PostgreSQL go straight to one partition instead of
+    // probing every monthly partition for the ids.
+    private async Task<List<TrackingEventResponse>> GetByIdsAsync(List<long> ids, DateTime occurredAt)
     {
         return await _context.TrackingEvents
-            .Where(e => ids.Contains(e.Id))
+            .Where(e => e.OccurredAt == occurredAt && ids.Contains(e.Id))
             .OrderBy(e => e.Id)
             .Select(Projection)
             .ToListAsync();

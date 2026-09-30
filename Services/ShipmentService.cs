@@ -54,13 +54,18 @@ public class ShipmentService : IShipmentService
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
+            // Two indexed lookups combined with UNION: an OR across Shipments and an
+            // EXISTS on ShipmentLegs can't use the trigram indexes and scans every shipment.
             var pattern = QueryHelpers.ContainsPattern(query.Search);
-            shipments = shipments.Where(s =>
-                EF.Functions.ILike(s.TrackingNumber, pattern) ||
-                (s.Reference != null && EF.Functions.ILike(s.Reference, pattern)) ||
-                s.Legs.Any(l =>
-                    (l.DocumentNumber != null && EF.Functions.ILike(l.DocumentNumber, pattern)) ||
-                    (l.VoyageNumber != null && EF.Functions.ILike(l.VoyageNumber, pattern))));
+            var matchingIds = _context.Shipments
+                .Where(s => EF.Functions.ILike(s.TrackingNumber, pattern) ||
+                            (s.Reference != null && EF.Functions.ILike(s.Reference, pattern)))
+                .Select(s => s.Id)
+                .Union(_context.ShipmentLegs
+                    .Where(l => (l.DocumentNumber != null && EF.Functions.ILike(l.DocumentNumber, pattern)) ||
+                                (l.VoyageNumber != null && EF.Functions.ILike(l.VoyageNumber, pattern)))
+                    .Select(l => l.ShipmentId));
+            shipments = shipments.Where(s => matchingIds.Contains(s.Id));
         }
         if (query.Status.HasValue)
         {

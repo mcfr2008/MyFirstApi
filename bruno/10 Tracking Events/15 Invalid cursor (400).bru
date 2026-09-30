@@ -1,0 +1,19 @@
+meta {
+  name: Invalid cursor (400)
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents?cursor=not-a-real-cursor
+  body: none
+  auth: inherit
+}
+
+params:query {
+  cursor: not-a-real-cursor
+}
+
+assert {
+  res.status: eq 400
+}

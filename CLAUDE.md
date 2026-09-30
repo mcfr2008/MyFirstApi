@@ -83,6 +83,25 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
 
 The dev PostgreSQL database runs in a Docker container named `postgres-server`, and `psql` isn't installed on the host. Apply a script with `docker exec -i postgres-server psql -U postgres -d myfirstapi_db -v ON_ERROR_STOP=1 < Scripts/NNN_x.sql`. The seeded login is `admin` / `ChangeMe123!` (see `Scripts/003_users_seed_admin.sql`).
 
+### Performance and data growth
+
+`TrackingEvents` is the fast-growing table. `Scripts/maintenance/README.md` has the preventive-maintenance plan and the before/after benchmarks.
+- **Partitioning.** It is range-partitioned by month on `OccurredAt` (`Scripts/025`).
+  - The PK is `("Id", "OccurredAt")` and there's no DB foreign key for `ReplacesEventId`, but EF still models `Id` as the key.
+  - A lookup by `Id` alone probes every partition. When the time is known, also filter on `OccurredAt` (see `TrackingEventService.GetByIdsAsync`).
+  - `PartitionMaintenanceService` (a hosted service) creates partitions 3 months ahead at startup and daily.
+- **Cursor paging.** `GET /api/TrackingEvents` returns `CursorPagedResult` (`nextCursor`/`hasMore`) instead of page numbers.
+  - The cursor is a base64url-encoded `"<OccurredAt ticks>_<Id>"`.
+  - `totalCount` is only computed with `includeTotalCount=true`.
+  - Use this pattern for any other list that can grow to millions of rows.
+- **Search indexes.** Substring search (`ILIKE '%x%'`) relies on `pg_trgm` GIN indexes (`Scripts/026`).
+  - Every column in a searched OR needs one.
+  - Don't OR across a join or `EXISTS`: build matching ids with `UNION` instead (see `ShipmentService.GetShipmentsAsync`).
+- **Master-data cache.** Event types and reason codes are read through `IMasterDataCache` (IMemoryCache, 5-minute TTL).
+  - `EventTypeService` and `ReasonCodeService` invalidate it through the `MasterDataService.OnChanged` hook.
+  - Cached entities are detached, so assign their ids and never attach them or use them as navigation properties.
+- **Dev scripts.** `Scripts/dev/` (load-test seed/cleanup, `benchmark.py`) and `Scripts/maintenance/` (health check, partitions, `pg_stat_statements`) are **not** in `run_all.sql`.
+
 ### Schema changes
 
 `Scripts/` holds numbered, idempotent SQL files (`CREATE TABLE IF NOT EXISTS`, `ON CONFLICT DO NOTHING`), one per feature, schema before seed. When adding a table/column:

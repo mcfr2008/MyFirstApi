@@ -1,17 +1,18 @@
 meta {
   name: Events by reason
   type: http
-  seq: 17
+  seq: 20
 }
 
 get {
-  url: {{baseUrl}}/api/TrackingEvents?reasonCode=RECIPIENT_ABSENT
+  url: {{baseUrl}}/api/TrackingEvents?reasonCode=RECIPIENT_ABSENT&includeTotalCount=true
   body: none
   auth: inherit
 }
 
 params:query {
   reasonCode: RECIPIENT_ABSENT
+  includeTotalCount: true
 }
 
 assert {

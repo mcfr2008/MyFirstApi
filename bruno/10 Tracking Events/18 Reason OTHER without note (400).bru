@@ -1,7 +1,7 @@
 meta {
-  name: Reason not valid for this event (400)
+  name: Reason OTHER without note (400)
   type: http
-  seq: 14
+  seq: 18
 }
 
 post {
@@ -14,14 +14,10 @@ body:json {
   {
     "tagCode": "{{itemTagCode}}",
     "eventTypeCode": "DELIVERY_FAILED",
-    "reasonCode": "WATER_DAMAGE"
+    "reasonCode": "OTHER"
   }
 }
 
 assert {
   res.status: eq 400
-}
-
-docs {
-  WATER_DAMAGE only applies to DAMAGED.
 }

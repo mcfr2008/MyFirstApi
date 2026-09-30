@@ -59,6 +59,9 @@ builder.Services.AddScoped<ITrackingEventRecorder, TrackingEventRecorder>();
 builder.Services.AddScoped<ITrackingEventService, TrackingEventService>();
 builder.Services.AddScoped<IShipmentService, ShipmentService>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IMasterDataCache, MasterDataCache>();
+builder.Services.AddHostedService<PartitionMaintenanceService>();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // Turns ConflictException / BusinessRuleException from services into 409 / 400.

@@ -72,7 +72,7 @@ public class ScanEventsRequest : EventDetails
     public List<string> TagCodes { get; set; } = new();
 }
 
-public class TrackingEventQuery : PagedQuery
+public class TrackingEventQuery
 {
     public int? TrackedItemId { get; set; }
     public string? TagCode { get; set; }
@@ -90,6 +90,17 @@ public class TrackingEventQuery : PagedQuery
 
     // Voided events are hidden unless asked for (audit view).
     public bool IncludeVoided { get; set; }
+
+    // NextCursor from the previous page; omit for the first page.
+    [StringLength(100)]
+    public string? Cursor { get; set; }
+
+    [Range(1, 200)]
+    public int PageSize { get; set; } = 50;
+
+    // Adds TotalCount to the response. Costs a full count of the matching rows,
+    // so only ask for it when the number is actually shown.
+    public bool IncludeTotalCount { get; set; }
 }
 
 public class VoidEventRequest

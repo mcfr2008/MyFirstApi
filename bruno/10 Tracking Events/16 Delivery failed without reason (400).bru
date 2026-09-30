@@ -1,7 +1,7 @@
 meta {
-  name: Reason OTHER without note (400)
+  name: Delivery failed without reason (400)
   type: http
-  seq: 15
+  seq: 16
 }
 
 post {
@@ -13,11 +13,14 @@ post {
 body:json {
   {
     "tagCode": "{{itemTagCode}}",
-    "eventTypeCode": "DELIVERY_FAILED",
-    "reasonCode": "OTHER"
+    "eventTypeCode": "DELIVERY_FAILED"
   }
 }
 
 assert {
   res.status: eq 400
+}
+
+docs {
+  DELIVERY_FAILED has requiresReason = true.
 }

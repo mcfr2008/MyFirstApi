@@ -10,9 +10,14 @@ namespace MyFirstApi.Services;
 public class EventTypeService
     : MasterDataService<EventType, EventTypeRequest, EventTypeResponse, MasterDataQuery>, IEventTypeService
 {
-    public EventTypeService(AppDbContext context) : base(context)
+    private readonly IMasterDataCache _cache;
+
+    public EventTypeService(AppDbContext context, IMasterDataCache cache) : base(context)
     {
+        _cache = cache;
     }
+
+    protected override void OnChanged() => _cache.Invalidate();
 
     protected override DbSet<EventType> Set => Context.EventTypes;
 

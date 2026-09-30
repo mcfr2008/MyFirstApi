@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/TrackingEvents?shipmentId={{shipmentId}}&oldestFirst=true&pageSize=100
+  url: {{baseUrl}}/api/TrackingEvents?shipmentId={{shipmentId}}&oldestFirst=true&pageSize=100&includeTotalCount=true
   body: none
   auth: inherit
 }
@@ -14,6 +14,7 @@ params:query {
   shipmentId: {{shipmentId}}
   oldestFirst: true
   pageSize: 100
+  includeTotalCount: true
 }
 
 assert {

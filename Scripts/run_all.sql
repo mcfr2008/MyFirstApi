@@ -28,3 +28,5 @@
 \ir 022_reason_codes_table.sql
 \ir 023_reason_codes_seed.sql
 \ir 024_tracking_events_void_reason.sql
+\ir 025_tracking_events_partitioning.sql
+\ir 026_search_indexes_and_storage.sql

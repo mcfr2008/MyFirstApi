@@ -1,0 +1,29 @@
+meta {
+  name: Timeline page 2 (cursor paging)
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents?trackedItemId={{itemId}}&oldestFirst=true&pageSize=2&cursor={{eventsCursor}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  trackedItemId: {{itemId}}
+  oldestFirst: true
+  pageSize: 2
+  cursor: {{eventsCursor}}
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("continues after page 1 without overlap", function () {
+    expect(res.body.items.length).to.be.greaterThan(0);
+    expect(res.body.items.map(e => e.id)).to.not.include(bru.getVar("page1LastId"));
+  });
+}

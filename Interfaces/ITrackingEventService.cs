@@ -4,7 +4,7 @@ namespace MyFirstApi.Interfaces;
 
 public interface ITrackingEventService
 {
-    Task<PagedResult<TrackingEventResponse>> GetEventsAsync(TrackingEventQuery query);
+    Task<CursorPagedResult<TrackingEventResponse>> GetEventsAsync(TrackingEventQuery query);
     Task<TrackingEventResponse> RecordAsync(RecordEventRequest request);
     Task<IReadOnlyList<TrackingEventResponse>> ScanAsync(ScanEventsRequest request);
     Task<TrackingEventResponse?> GetEventByIdAsync(long id);

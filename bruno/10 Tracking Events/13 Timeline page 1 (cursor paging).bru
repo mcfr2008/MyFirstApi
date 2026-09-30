@@ -1,0 +1,32 @@
+meta {
+  name: Timeline page 1 (cursor paging)
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/TrackingEvents?trackedItemId={{itemId}}&oldestFirst=true&pageSize=2
+  body: none
+  auth: inherit
+}
+
+params:query {
+  trackedItemId: {{itemId}}
+  oldestFirst: true
+  pageSize: 2
+}
+
+assert {
+  res.status: eq 200
+  res.body.hasMore: eq true
+  res.body.nextCursor: isString
+}
+
+script:post-response {
+  bru.setVar("eventsCursor", res.body.nextCursor);
+  bru.setVar("page1LastId", res.body.items[1].id);
+}
+
+docs {
+  Lists use keyset (cursor) paging: pass nextCursor back as ?cursor= for the next page. No totalCount unless includeTotalCount=true.
+}

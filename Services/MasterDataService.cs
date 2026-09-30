@@ -41,6 +41,11 @@ public abstract class MasterDataService<TEntity, TRequest, TResponse, TQuery>
     // the entity still holds its previous values for comparison.
     protected virtual Task ValidateAsync(TEntity entity, TRequest request) => Task.CompletedTask;
 
+    // Runs after every successful create/update/activate/deactivate (e.g. to clear a cache).
+    protected virtual void OnChanged()
+    {
+    }
+
     protected virtual IQueryable<TEntity> ApplyFilters(IQueryable<TEntity> items, TQuery query) => items;
 
     protected virtual IOrderedQueryable<TEntity> ApplyOrder(IQueryable<TEntity> items) => items.OrderBy(e => e.Code);
@@ -102,6 +107,7 @@ public abstract class MasterDataService<TEntity, TRequest, TResponse, TQuery>
 
         Set.Add(entity);
         await Context.SaveChangesOrConflictAsync(CodeExistsMessage(code));
+        OnChanged();
 
         return (await GetByIdAsync(entity.Id))!;
     }
@@ -123,6 +129,7 @@ public abstract class MasterDataService<TEntity, TRequest, TResponse, TQuery>
         entity.UpdatedAt = DateTime.UtcNow;
 
         await Context.SaveChangesOrConflictAsync(CodeExistsMessage(code));
+        OnChanged();
         return await GetByIdAsync(id);
     }
 
@@ -137,6 +144,7 @@ public abstract class MasterDataService<TEntity, TRequest, TResponse, TQuery>
             entity.IsActive = isActive;
             entity.UpdatedAt = DateTime.UtcNow;
             await Context.SaveChangesAsync();
+            OnChanged();
         }
         return true;
     }

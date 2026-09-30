@@ -120,6 +120,8 @@ public class AppDbContext : DbContext
                 .HasForeignKey(e => e.ContainerId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.ReasonCode).WithMany()
                 .HasForeignKey(e => e.ReasonCodeId).OnDelete(DeleteBehavior.Restrict);
+            // No database FK: TrackingEvents is partitioned (Scripts/025), so its key is
+            // ("Id", "OccurredAt"). The relationship exists only in the EF model.
             entity.HasOne<TrackingEvent>().WithMany()
                 .HasForeignKey(e => e.ReplacesEventId).OnDelete(DeleteBehavior.Restrict);
         });

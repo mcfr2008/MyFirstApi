@@ -17,6 +17,19 @@ public interface IMasterDataResponse
     int Id { get; }
 }
 
+// Keyset ("cursor") paging for large, append-heavy lists (tracking events):
+// pass NextCursor back as ?cursor= to get the next page. Unlike page numbers it
+// stays fast however deep you go, and new rows don't shift pages.
+public class CursorPagedResult<T>
+{
+    public IReadOnlyList<T> Items { get; set; } = [];
+    public int PageSize { get; set; }
+    public bool HasMore { get; set; }
+    public string? NextCursor { get; set; }
+    // Only filled when requested (includeTotalCount=true): counting millions of rows is slow.
+    public int? TotalCount { get; set; }
+}
+
 // Compact reference to a master-data row, embedded in other responses.
 public record ReferenceSummary(int Id, string Code, string Name);
 
