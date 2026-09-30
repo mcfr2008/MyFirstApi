@@ -26,6 +26,12 @@ public static class Errors
     public static readonly ErrorDefinition InternalError = new("INTERNAL_ERROR", StatusCodes.Status500InternalServerError,
         "An unexpected error occurred.", "เกิดข้อผิดพลาดที่ไม่คาดคิด");
 
+    public static readonly ErrorDefinition IdempotencyKeyInvalidDef = new("IDEMPOTENCY_KEY_INVALID", BadRequest,
+        "Idempotency-Key must be 1-{maxLength} visible ASCII characters.", "Idempotency-Key ต้องเป็นอักขระ ASCII ที่มองเห็นได้ 1-{maxLength} ตัว");
+    public static readonly ErrorDefinition IdempotencyKeyReusedDef = new("IDEMPOTENCY_KEY_REUSED", StatusCodes.Status422UnprocessableEntity,
+        "Idempotency-Key {key} was already used for a different request. Use a new key for each new request.",
+        "Idempotency-Key {key} ถูกใช้กับคำขออื่นไปแล้ว คำขอใหม่แต่ละครั้งต้องใช้ key ใหม่");
+
     public static readonly ErrorDefinition InvalidCursorDef = new("INVALID_CURSOR", BadRequest,
         "Invalid cursor. Use nextCursor from the previous page.", "cursor ไม่ถูกต้อง ให้ใช้ nextCursor จากหน้าก่อนหน้า");
     public static readonly ErrorDefinition ReferenceNotFoundDef = new("REFERENCE_NOT_FOUND", BadRequest,
@@ -180,6 +186,8 @@ public static class Errors
     private static ApiException Create(ErrorDefinition definition, params (string Name, object? Value)[] args) =>
         new(definition, args.ToDictionary(a => a.Name, a => a.Value));
 
+    public static ApiException IdempotencyKeyInvalid(int maxLength) => Create(IdempotencyKeyInvalidDef, ("maxLength", maxLength));
+    public static ApiException IdempotencyKeyReused(string key) => Create(IdempotencyKeyReusedDef, ("key", key));
     public static ApiException InvalidCursor() => Create(InvalidCursorDef);
     public static ApiException ReferenceNotFound(string field, int id) => Create(ReferenceNotFoundDef, ("field", field), ("id", id));
     public static ApiException ReferenceInactive(string field, string code) => Create(ReferenceInactiveDef, ("field", field), ("code", code));

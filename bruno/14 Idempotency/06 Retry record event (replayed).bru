@@ -1,0 +1,34 @@
+meta {
+  name: Retry record event (replayed)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: arrive-{{runId}}
+}
+
+body:json {
+  {
+    "trackedItemId": {{idemItemId}},
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{locationId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.id: eq {{idemEventId}}
+}
+
+tests {
+  test("replayed", function () {
+    expect(res.headers["idempotent-replayed"]).to.equal("true");
+  });
+}

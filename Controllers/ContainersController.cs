@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MyFirstApi.Dtos;
+using MyFirstApi.Idempotency;
 using MyFirstApi.Interfaces;
 
 namespace MyFirstApi.Controllers;
@@ -24,6 +25,7 @@ public class ContainersController : MasterDataController<ContainerRequest, Conta
         return Ok(contents);
     }
 
+    [Idempotent]
     [HttpPost("{id:int}/load")]
     public async Task<IActionResult> Load(int id, ContainerLoadRequest request)
     {
@@ -33,6 +35,7 @@ public class ContainersController : MasterDataController<ContainerRequest, Conta
         return Ok(result);
     }
 
+    [Idempotent]
     [HttpPost("{id:int}/unload")]
     public async Task<IActionResult> Unload(int id, ContainerUnloadRequest request)
     {
@@ -43,6 +46,7 @@ public class ContainersController : MasterDataController<ContainerRequest, Conta
     }
 
     // One scan of the container records the event for every item inside it.
+    [Idempotent]
     [HttpPost("{id:int}/scan")]
     public async Task<IActionResult> Scan(int id, EventDetails request)
     {

@@ -1,0 +1,41 @@
+meta {
+  name: Create item with key
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackedItems
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: create-item-{{runId}}
+}
+
+body:json {
+  {
+    "name": "Idempotent scan item {{runId}}",
+    "currentLocationId": {{locationId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("first request is not a replay", function () {
+    expect(res.headers["idempotent-replayed"]).to.be.undefined;
+  });
+}
+
+script:post-response {
+  bru.setVar("idemItemId", res.body.id);
+  bru.setVar("idemTagCode", res.body.tagCode);
+}
+
+docs {
+  The tag code is generated, so without a key a retry would register a second item.
+}

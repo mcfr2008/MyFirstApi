@@ -1,0 +1,27 @@
+meta {
+  name: Same key, different request (422)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackedItems
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: create-item-{{runId}}
+}
+
+body:json {
+  {
+    "name": "Another item {{runId}}",
+    "currentLocationId": {{locationId}}
+  }
+}
+
+assert {
+  res.status: eq 422
+  res.body.code: eq "IDEMPOTENCY_KEY_REUSED"
+}

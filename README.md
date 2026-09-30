@@ -41,6 +41,8 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
   - The receiver **signs on the courier's device**, optionally with photos. The API stores the signature image with its SHA-256, the receiver's name and relation, GPS and time.
   - The same request delivers the shipment. Items the receiver refuses get `DELIVERY_FAILED` with a reason instead.
   - Shipments require a signature by default.
+- **Safe retries (idempotency keys)**
+  - Scans, events, container and shipment operations and item creation accept an `Idempotency-Key` header. A retry after a lost connection returns the first response instead of recording twice.
 - **Public tracking**
   - Anyone with the tracking number can follow a shipment **without logging in**: status, route legs with ETD/ETA and ATD/ATA, ETA, and a newest-first timeline.
   - Only public details are shown, and requests are rate limited per IP (see [Public tracking](#public-tracking)).
@@ -132,6 +134,16 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
   - To translate, look up `code` in `GET /api/v1/ErrorCodes` and fill the `th` template with `args`, for example `ประเภท {category} ต้องกรอกข้อมูลเพิ่มเติม: {attributes}`.
   - `scope` tells you which entry of a batch request failed.
   - Framework errors carry codes too: `VALIDATION_FAILED` (field messages in `errors`), `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED` (429, with `Retry-After`) and `INTERNAL_ERROR`.
+- **Idempotency keys (safe retries)**
+  - Send `Idempotency-Key: <unique value>` (1-255 visible ASCII characters, for example a UUID) on a POST that records events or creates records. Scanner and mobile apps should generate one key per action and reuse it for every retry of that action.
+  - **Supported on:** `TrackedItems` create and `bulk`; `TrackingEvents` record, `scan`, `void` and `correct`; `Containers` `load`, `unload` and `scan`; `Shipments` create, `items`, `depart`, `arrive`, `customs`, `events`, `deliver`, `proof-of-delivery` and `cancel`.
+  - **How it behaves:**
+    - A retry with the same key and the same request returns the stored status, body and `Location`, with the header `Idempotent-Replayed: true`. Nothing runs again.
+    - The same key with a different request (another endpoint or body) returns `422 IDEMPOTENCY_KEY_REUSED`.
+    - Only successful responses are stored. After an error, fix the request and retry with the same key.
+    - Two requests with the same key at the same moment run once; the second waits and gets the replay.
+    - Keys are per user and kept for 24 hours (`Idempotency:RetentionHours`). Without the header, requests work as before.
+  - A retry must resend the **same** data. Generate timestamps such as `occurredAt` once per action, not per attempt.
 - **Paging**
   - Master data, items and shipments use page numbers (`page`, `pageSize`).
   - Tracking events use **cursor paging**: pass `nextCursor` back as `?cursor=`, and read `totalCount` only when you ask for it with `includeTotalCount=true`.
@@ -245,7 +257,7 @@ export Jwt__Key="<long-random-secret>"
 
 #### 3. Create the schema
 
-The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `028`). Re-running them only applies what's new.
+The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `030`). Re-running them only applies what's new.
 
 With `psql` installed on the host:
 
@@ -270,6 +282,7 @@ done
 | `025`–`027` | Performance: monthly partitioning of `TrackingEvents`, trigram search indexes, foreign-key indexes |
 | `028` | `English \| ภาษาไทย` comments on every table and column |
 | `029` | Proof of delivery: stored files, proofs, photos, `Shipments.RequiresSignature` |
+| `030` | Idempotency keys (stored responses for safe retries) |
 
 #### 4. Run
 
@@ -313,7 +326,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (218 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (228 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -330,6 +343,7 @@ There is no automated unit or integration test project yet.
 - **Current state lives on the item**, so the busiest screens never read history.
 - **Monthly partitions** keep indexes small and let date-range queries skip whole months. Old months can later be archived in one step.
 - **Partitions are created ahead.** `PartitionMaintenanceService` creates them 3 months ahead at startup and daily.
+- **Expired idempotency keys are deleted hourly** by `IdempotencyKeyCleanupService`, so `IdempotencyKeys` only holds the last 24 hours.
 - **Cursor paging** keeps deep pages as fast as the first.
 - **`pg_trgm` indexes** serve substring searches, and **every foreign key is indexed**.
 
@@ -375,7 +389,8 @@ Before deploying beyond local development:
 - [ ] Dashboards / reports and notifications (email, webhook)
 - [ ] Audit log
 - [ ] Per-endpoint permissions for Thing-Tag features, user management, refresh tokens
-- [ ] Concurrency control and idempotent / offline scanning
+- [x] Idempotency keys for safe retries of scans and operations
+- [ ] Concurrency control and offline scanning (batch upload of queued scans)
 - [ ] Automated tests, CI/CD, health checks
 
 ## Contributing

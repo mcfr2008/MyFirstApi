@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MyFirstApi.Dtos;
+using MyFirstApi.Idempotency;
 using MyFirstApi.Interfaces;
 
 namespace MyFirstApi.Controllers;
@@ -42,6 +43,7 @@ public class ShipmentsController : ControllerBase
         return Ok(shipment);
     }
 
+    [Idempotent]
     [HttpPost]
     public async Task<IActionResult> Create(CreateShipmentRequest request)
     {
@@ -78,6 +80,7 @@ public class ShipmentsController : ControllerBase
         return Ok(items);
     }
 
+    [Idempotent]
     [HttpPost("{id:int}/items")]
     public async Task<IActionResult> AddItems(int id, ShipmentItemsRequest request)
     {
@@ -96,6 +99,7 @@ public class ShipmentsController : ControllerBase
         return Ok(shipment);
     }
 
+    [Idempotent]
     [HttpPost("{id:int}/legs/{legId:int}/depart")]
     public async Task<IActionResult> DepartLeg(int id, int legId, LegMovementRequest request)
     {
@@ -105,6 +109,7 @@ public class ShipmentsController : ControllerBase
         return Ok(shipment);
     }
 
+    [Idempotent]
     [HttpPost("{id:int}/legs/{legId:int}/arrive")]
     public async Task<IActionResult> ArriveLeg(int id, int legId, LegMovementRequest request)
     {
@@ -114,6 +119,7 @@ public class ShipmentsController : ControllerBase
         return Ok(shipment);
     }
 
+    [Idempotent]
     [HttpPost("{id:int}/customs")]
     public async Task<IActionResult> UpdateCustoms(int id, CustomsUpdateRequest request)
     {
@@ -123,6 +129,7 @@ public class ShipmentsController : ControllerBase
         return Ok(shipment);
     }
 
+    [Idempotent]
     [HttpPost("{id:int}/events")]
     public async Task<IActionResult> RecordEvent(int id, EventDetails request)
     {
@@ -133,6 +140,7 @@ public class ShipmentsController : ControllerBase
     }
 
     // Only for shipments with requiresSignature = false; otherwise use proof-of-delivery.
+    [Idempotent]
     [HttpPost("{id:int}/deliver")]
     public async Task<IActionResult> Deliver(int id, DeliverShipmentRequest request)
     {
@@ -145,6 +153,7 @@ public class ShipmentsController : ControllerBase
     // multipart/form-data: signature (image), photos[] (images), receiverName, receiverRelation,
     // signedAt, latitude, longitude, locationAccuracyMeters, deviceInfo, note,
     // refusedItems[i].tagCode / .reasonCode / .note. Delivers the shipment in the same step.
+    [Idempotent]
     [HttpPost("{id:int}/proof-of-delivery")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(32 * 1024 * 1024)]
@@ -165,6 +174,7 @@ public class ShipmentsController : ControllerBase
         return Ok(proof);
     }
 
+    [Idempotent]
     [HttpPost("{id:int}/cancel")]
     public async Task<IActionResult> Cancel(int id)
     {

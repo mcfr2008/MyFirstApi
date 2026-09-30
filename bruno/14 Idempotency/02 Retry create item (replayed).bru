@@ -1,0 +1,35 @@
+meta {
+  name: Retry create item (replayed)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackedItems
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: create-item-{{runId}}
+}
+
+body:json {
+  {
+    "name": "Idempotent scan item {{runId}}",
+    "currentLocationId": {{locationId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.id: eq {{idemItemId}}
+  res.body.tagCode: eq {{idemTagCode}}
+}
+
+tests {
+  test("response is replayed with its Location", function () {
+    expect(res.headers["idempotent-replayed"]).to.equal("true");
+    expect(res.headers["location"]).to.contain("/TrackedItems/" + bru.getVar("idemItemId"));
+  });
+}

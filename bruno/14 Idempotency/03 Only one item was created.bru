@@ -1,0 +1,20 @@
+meta {
+  name: Only one item was created
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/TrackedItems?search=Idempotent scan item {{runId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  search: Idempotent scan item {{runId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 1
+}

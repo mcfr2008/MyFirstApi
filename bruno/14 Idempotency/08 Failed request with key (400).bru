@@ -1,0 +1,30 @@
+meta {
+  name: Failed request with key (400)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: retry-after-error-{{runId}}
+}
+
+body:json {
+  {
+    "trackedItemId": {{idemItemId}},
+    "eventTypeCode": "TELEPORTED"
+  }
+}
+
+assert {
+  res.status: eq 400
+}
+
+docs {
+  Failed requests are not stored, so the same key can be used again once the request is fixed.
+}

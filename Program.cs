@@ -69,6 +69,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IMasterDataCache, MasterDataCache>();
 builder.Services.AddHostedService<PartitionMaintenanceService>();
+builder.Services.AddHostedService<IdempotencyKeyCleanupService>();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 // Turns ConflictException / BusinessRuleException from services into 409 / 400.
@@ -125,7 +126,7 @@ builder.Services.AddCors(options =>
         .WithOrigins(corsOrigins)
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .WithExposedHeaders("Location", "api-supported-versions", "Retry-After"));
+        .WithExposedHeaders("Location", "api-supported-versions", "Retry-After", "Idempotent-Replayed"));
 });
 
 // Anonymous endpoints (public tracking) are limited per client IP so tracking
