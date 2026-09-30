@@ -1,0 +1,44 @@
+meta {
+  name: Track delivered shipment (no login)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/PublicTracking/{{trackingNumber}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.trackingNumber: eq {{trackingNumber}}
+  res.body.status: eq "Delivered"
+  res.body.signedForDelivery: eq true
+  res.body.totalPieces: eq 3
+  res.body.legs.length: eq 3
+  res.body.events.length: eq 11
+  res.body.destination.type: eq "CustomerAddress"
+  res.body.destination.name: isNull
+  res.body.senderParty: isUndefined
+  res.body.receiverParty: isUndefined
+  res.body.reference: isUndefined
+}
+
+tests {
+  test("delivery is one entry per outcome with a piece count", function () {
+    const delivered = res.body.events.find(e => e.eventCode === "DELIVERED");
+    const refused = res.body.events.find(e => e.eventCode === "DELIVERY_FAILED");
+    expect(delivered.pieces).to.equal(2);
+    expect(refused.pieces).to.equal(1);
+    expect(refused.reasonCode).to.equal("REFUSED");
+    expect(res.body.events.every(e => e.note === undefined && e.recordedBy === undefined)).to.equal(true);
+  });
+}
+
+docs {
+  Customer-facing tracking: no token needed. Events are newest first, and an operation recorded
+  for several pieces appears once with a `pieces` count: 10 shipment events for 3 pieces, with
+  delivery split into DELIVERED (2) and DELIVERY_FAILED/REFUSED (1) from the proof of delivery. Parties, references, notes, GPS, vehicles and
+  proof-of-delivery details are never returned, and customer-address locations have no name.
+}

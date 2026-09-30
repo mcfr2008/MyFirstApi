@@ -41,6 +41,9 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
   - The receiver **signs on the courier's device**, optionally with photos. The API stores the signature image with its SHA-256, the receiver's name and relation, GPS and time.
   - The same request delivers the shipment. Items the receiver refuses get `DELIVERY_FAILED` with a reason instead.
   - Shipments require a signature by default.
+- **Public tracking**
+  - Anyone with the tracking number can follow a shipment **without logging in**: status, route legs with ETD/ETA and ATD/ATA, ETA, and a newest-first timeline.
+  - Only public details are shown, and requests are rate limited per IP (see [Public tracking](#public-tracking)).
 - **Built for growth**
   - Monthly-partitioned history with partitions created ahead automatically.
   - Cursor paging, trigram search indexes and a master-data cache.
@@ -98,7 +101,7 @@ Shipment ──< ShipmentLeg (Road → Sea → Road ...)
 
 ## API overview
 
-All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api/v2` so existing apps keep working. Every endpoint except login and the error catalog requires `Authorization: Bearer <token>`. Swagger UI is at `/swagger` in Development.
+All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api/v2` so existing apps keep working. Every endpoint except login, the error catalog and public tracking requires `Authorization: Bearer <token>`. Swagger UI is at `/swagger` in Development.
 
 | Area | Endpoints |
 |---|---|
@@ -109,6 +112,7 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
 | Containers | master-data endpoints (below) + `GET /{id}/contents` · `POST /{id}/load` · `/unload` · `/scan` |
 | Shipments | `GET/POST /api/v1/Shipments` · `GET/PUT /{id}` · `GET /by-tracking/{no}` · `PUT /{id}/legs/{legId}` · `POST /{id}/legs/{legId}/depart` · `/arrive` · `GET/POST /{id}/items` · `DELETE /{id}/items/{itemId}` · `POST /{id}/customs` · `/events` · `/deliver` · `/cancel` |
 | Proof of delivery | `POST /api/v1/Shipments/{id}/proof-of-delivery` (multipart) · `GET /api/v1/Shipments/{id}/proof-of-delivery` |
+| Public tracking | `GET /api/v1/PublicTracking/{trackingNumber}` (no login, rate limited) |
 | Files | `GET /api/v1/Files/{id}` (signature / photo download, bearer token required) |
 | Master data | `ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, each with `GET` (search, filters, paging) · `POST` · `GET/PUT /{id}` · `GET /by-code/{code}` · `DELETE /{id}` (deactivate) · `POST /{id}/activate` |
 | Legacy | `/api/v1/Products` CRUD (sample from before Thing-Tag) |
@@ -127,7 +131,7 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
   - `detail` is the English message.
   - To translate, look up `code` in `GET /api/v1/ErrorCodes` and fill the `th` template with `args`, for example `ประเภท {category} ต้องกรอกข้อมูลเพิ่มเติม: {attributes}`.
   - `scope` tells you which entry of a batch request failed.
-  - Framework errors carry codes too: `VALIDATION_FAILED` (field messages in `errors`), `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND` and `INTERNAL_ERROR`.
+  - Framework errors carry codes too: `VALIDATION_FAILED` (field messages in `errors`), `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED` (429, with `Retry-After`) and `INTERNAL_ERROR`.
 - **Paging**
   - Master data, items and shipments use page numbers (`page`, `pageSize`).
   - Tracking events use **cursor paging**: pass `nextCursor` back as `?cursor=`, and read `totalCount` only when you ask for it with `includeTotalCount=true`.
@@ -159,10 +163,32 @@ In one transaction, the API:
 - **Storage.** Files are stored under `FileStorage:RootPath` (`App_Data/files` by default; Docker Compose uses the `files-data` volume). They're served by `GET /api/v1/Files/{id}` with the bearer token, so a frontend fetches the image as a blob rather than using `<img src>`.
 - **Personal data.** Signatures and photos are personal data under PDPA; role-based access to them comes with the permissions phase.
 
+## Public tracking
+
+`GET /api/v1/PublicTracking/{trackingNumber}` is for customers and receivers, for example a "Track your shipment" page. It needs no token, and the tracking number is case-insensitive.
+
+**What it returns**
+- The shipment's status, customs status, origin and destination, planned pickup, ETA (the last leg's planned arrival), delivery time, whether delivery was signed for, and the number of pieces.
+- The legs, with mode, carrier name, route and ETD/ETA vs ATD/ATA.
+- A **timeline, newest first**: the shipment's own events (departures, arrivals, customs, delivery) plus other events of its items while they were in the shipment, such as hub scans. An event recorded for several pieces at once appears once, with a `pieces` count. Voided events are left out.
+- Every location has its IANA `timeZone`, so the page can show local times.
+
+**What it never returns**
+- Sender and receiver, the customer's reference and notes.
+- Who recorded an event, event notes and GPS.
+- Vehicles and transport documents.
+- The receiver's name, signature and photos.
+- The name of a customer-address location. Only its type, province and country are shown.
+
+**Abuse protection**
+- Requests are limited per client IP: 30 per 60 seconds by default, set with `RateLimiting:PublicTracking:PermitLimit` / `WindowSeconds`. Past that, the API returns `429 RATE_LIMITED` with `Retry-After`.
+- An unknown tracking number gets a plain `404 NOT_FOUND`.
+- Behind a reverse proxy, configure forwarded headers so the limit applies to the real client IP rather than the proxy's.
+
 ## Authentication and authorization
 
 - **Login** (`POST /api/v1/Auth/login`) returns a JWT with a `role` claim, valid for 2 hours. Passwords are hashed with BCrypt.
-- **Secure by default.** A global fallback policy requires an authenticated user on every endpoint except login.
+- **Secure by default.** A global fallback policy requires an authenticated user on every endpoint except login, the error catalog and public tracking.
 - **Permissions are data, not code.** Actions use `[Authorize(Policy = "...")]`, and `Authorization/PermissionAuthorizationHandler.cs` checks the caller's role against the `RolePermissions` table on each request. Granting or revoking access means changing a row, not redeploying.
 - **Seeded accounts and roles.** `Scripts/003_users_seed_admin.sql` creates a bootstrap `admin` account; **change its password immediately**. `Scripts/005_permissions_seed.sql` grants the `Admin` role everything.
 
@@ -287,7 +313,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (215 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (218 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -333,7 +359,7 @@ Before deploying beyond local development:
 2. **Change the seeded `admin` password.**
 3. **Restrict access to signatures and delivery photos.** They are personal data (PDPA). Use cloud storage with encryption and backups for `FileStorage` in production.
 4. **Apply per-endpoint permissions** to the Thing-Tag endpoints (planned) and review the `RolePermissions` table.
-5. **Set `Cors:AllowedOrigins`** to the real frontend origin only, use HTTPS everywhere, and add rate limiting and monitoring.
+5. **Set `Cors:AllowedOrigins`** to the real frontend origin only, use HTTPS everywhere, and add monitoring. Public tracking is rate limited per IP; behind a proxy, set up forwarded headers so the limit sees real client IPs.
 
 ## Roadmap
 
@@ -343,8 +369,8 @@ Before deploying beyond local development:
 - [x] Containers / consolidation and multimodal shipments with customs
 - [x] Partitioning, cursor paging, search indexes and maintenance tooling
 - [x] API versioning (`/api/v1`), coded bilingual error catalog, configurable CORS, Docker Compose stack
-- [ ] Public tracking page API (no login, by tracking number)
 - [x] Proof of delivery: receiver signature, photos, GPS, refused items
+- [x] Public tracking API (no login, by tracking number, rate limited)
 - [ ] Document attachments (B/L, invoices) on the same file storage
 - [ ] Dashboards / reports and notifications (email, webhook)
 - [ ] Audit log

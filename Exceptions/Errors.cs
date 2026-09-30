@@ -21,6 +21,8 @@ public static class Errors
         "You don't have permission for this action.", "คุณไม่มีสิทธิ์ทำรายการนี้");
     public static readonly ErrorDefinition NotFound = new("NOT_FOUND", StatusCodes.Status404NotFound,
         "The requested record was not found.", "ไม่พบข้อมูลที่ต้องการ");
+    public static readonly ErrorDefinition TooManyRequests = new("RATE_LIMITED", StatusCodes.Status429TooManyRequests,
+        "Too many requests. Try again later (see Retry-After).", "ส่งคำขอบ่อยเกินไป กรุณาลองใหม่ภายหลัง (ดู Retry-After)");
     public static readonly ErrorDefinition InternalError = new("INTERNAL_ERROR", StatusCodes.Status500InternalServerError,
         "An unexpected error occurred.", "เกิดข้อผิดพลาดที่ไม่คาดคิด");
 

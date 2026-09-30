@@ -1,0 +1,20 @@
+meta {
+  name: Tracking number is case-insensitive
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/PublicTracking/{{trackingNumber}}
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  req.setUrl(req.getUrl().replace(bru.getVar("trackingNumber"), bru.getVar("trackingNumber").toLowerCase()));
+}
+
+assert {
+  res.status: eq 200
+  res.body.trackingNumber: eq {{trackingNumber}}
+}

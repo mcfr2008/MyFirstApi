@@ -10,6 +10,9 @@ using MyFirstApi.Exceptions;
 using MyFirstApi.Interfaces;
 using MyFirstApi.Services;
 using System.Text;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using MyFirstApi.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,6 +62,7 @@ builder.Services.AddScoped<IReasonCodeService, ReasonCodeService>();
 builder.Services.AddScoped<ITrackingEventRecorder, TrackingEventRecorder>();
 builder.Services.AddScoped<ITrackingEventService, TrackingEventService>();
 builder.Services.AddScoped<IShipmentService, ShipmentService>();
+builder.Services.AddScoped<IPublicTrackingService, PublicTrackingService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddScoped<IStoredFileService, StoredFileService>();
 builder.Services.AddHttpContextAccessor();
@@ -87,6 +91,7 @@ builder.Services.AddProblemDetails(options =>
             { Status: StatusCodes.Status401Unauthorized } => Errors.Unauthorized.Code,
             { Status: StatusCodes.Status403Forbidden } => Errors.Forbidden.Code,
             { Status: StatusCodes.Status404NotFound } => Errors.NotFound.Code,
+            { Status: StatusCodes.Status429TooManyRequests } => Errors.TooManyRequests.Code,
             { Status: >= 500 } => Errors.InternalError.Code,
             { Status: var status } => $"HTTP_{status}"
         };
@@ -120,7 +125,35 @@ builder.Services.AddCors(options =>
         .WithOrigins(corsOrigins)
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .WithExposedHeaders("Location", "api-supported-versions"));
+        .WithExposedHeaders("Location", "api-supported-versions", "Retry-After"));
+});
+
+// Anonymous endpoints (public tracking) are limited per client IP so tracking
+// numbers can't be guessed by brute force. A rejected request gets 429 with
+// Retry-After; UseStatusCodePages gives it a ProblemDetails body (RATE_LIMITED).
+var publicTrackingPermitLimit = builder.Configuration.GetValue("RateLimiting:PublicTracking:PermitLimit", 30);
+var publicTrackingWindow = TimeSpan.FromSeconds(
+    builder.Configuration.GetValue("RateLimiting:PublicTracking:WindowSeconds", 60));
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = (context, _) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+        }
+        return ValueTask.CompletedTask;
+    };
+    options.AddPolicy(PublicTrackingController.RateLimitPolicy, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = publicTrackingPermitLimit,
+                Window = publicTrackingWindow,
+                QueueLimit = 0
+            }));
 });
 
 // Configure JWT Authentication
@@ -178,6 +211,8 @@ app.UseCors(FrontendCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseRateLimiter();
 
 // 5. แมป Routing ไปหา Controllers
 app.MapControllers();
