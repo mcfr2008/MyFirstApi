@@ -1,0 +1,19 @@
+meta {
+  name: Download signature image
+  type: http
+  seq: 31
+}
+
+get {
+  url: {{baseUrl}}{{signatureUrl}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Needs the bearer token, so a frontend fetches it as a blob instead of <img src>.
+}

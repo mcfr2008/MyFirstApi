@@ -8,7 +8,7 @@ using MyFirstApi.Models;
 
 namespace MyFirstApi.Services;
 
-public class ShipmentService : IShipmentService
+public partial class ShipmentService : IShipmentService
 {
     private const string TrackingNumberAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -38,12 +38,15 @@ public class ShipmentService : IShipmentService
     private readonly AppDbContext _context;
     private readonly ITrackingEventRecorder _recorder;
     private readonly ICurrentUser _currentUser;
+    private readonly IFileStorage _fileStorage;
 
-    public ShipmentService(AppDbContext context, ITrackingEventRecorder recorder, ICurrentUser currentUser)
+    public ShipmentService(
+        AppDbContext context, ITrackingEventRecorder recorder, ICurrentUser currentUser, IFileStorage fileStorage)
     {
         _context = context;
         _recorder = recorder;
         _currentUser = currentUser;
+        _fileStorage = fileStorage;
     }
 
     // ------------------------------------------------------------------ queries
@@ -113,11 +116,16 @@ public class ShipmentService : IShipmentService
             .Select(g => new { ShipmentId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.ShipmentId, x => x.Count);
 
+        var withProof = await _context.ProofsOfDelivery
+            .Where(p => pageIds.Contains(p.ShipmentId))
+            .Select(p => p.ShipmentId)
+            .ToListAsync();
+
         return new PagedResult<ShipmentResponse>
         {
             Items = page
                 .OrderByDescending(s => s.Id)
-                .Select(s => ShipmentResponse.From(s, itemCounts.GetValueOrDefault(s.Id)))
+                .Select(s => ShipmentResponse.From(s, itemCounts.GetValueOrDefault(s.Id), withProof.Contains(s.Id)))
                 .ToList(),
             Page = query.Page,
             PageSize = query.PageSize,
@@ -389,17 +397,11 @@ public class ShipmentService : IShipmentService
     {
         var shipment = await ShipmentsWithDetails().FirstOrDefaultAsync(s => s.Id == id);
         if (shipment == null) return null;
-        EnsureStatus(shipment, "deliver", ShipmentStatus.Planned, ShipmentStatus.InTransit);
-
-        var notArrived = shipment.Legs.OrderBy(l => l.Sequence).FirstOrDefault(l => !l.ActualArrival.HasValue);
-        if (notArrived != null)
+        if (shipment.RequiresSignature)
         {
-            throw Errors.LegNotArrived(notArrived.Sequence);
+            throw Errors.SignatureRequired();
         }
-        if (shipment.CustomsStatus is CustomsStatus.Pending or CustomsStatus.InProgress or CustomsStatus.Hold)
-        {
-            throw Errors.CustomsNotCleared(shipment.CustomsStatus);
-        }
+        EnsureDeliverable(shipment);
 
         var deliveredAt = request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow;
         var note = string.IsNullOrWhiteSpace(request.ReceivedBy)
@@ -447,7 +449,24 @@ public class ShipmentService : IShipmentService
     private async Task<ShipmentResponse> ToResponseAsync(Shipment shipment)
     {
         var itemCount = await _context.ShipmentItems.CountAsync(si => si.ShipmentId == shipment.Id);
-        return ShipmentResponse.From(shipment, itemCount);
+        var hasProof = await _context.ProofsOfDelivery.AnyAsync(p => p.ShipmentId == shipment.Id);
+        return ShipmentResponse.From(shipment, itemCount, hasProof);
+    }
+
+    // Shared by /deliver and proof of delivery.
+    private static void EnsureDeliverable(Shipment shipment)
+    {
+        EnsureStatus(shipment, "deliver", ShipmentStatus.Planned, ShipmentStatus.InTransit);
+
+        var notArrived = shipment.Legs.OrderBy(l => l.Sequence).FirstOrDefault(l => !l.ActualArrival.HasValue);
+        if (notArrived != null)
+        {
+            throw Errors.LegNotArrived(notArrived.Sequence);
+        }
+        if (shipment.CustomsStatus is CustomsStatus.Pending or CustomsStatus.InProgress or CustomsStatus.Hold)
+        {
+            throw Errors.CustomsNotCleared(shipment.CustomsStatus);
+        }
     }
 
     private static void EnsureStatus(Shipment shipment, string action, params ShipmentStatus[] allowed)
@@ -472,14 +491,27 @@ public class ShipmentService : IShipmentService
         Shipment shipment, string eventTypeCode, int? locationId, DateTime occurredAt, string? note,
         int? legId, bool isSystemManaged, string? reasonCode = null, decimal? latitude = null, decimal? longitude = null)
     {
-        var items = await _context.TrackedItems
-            .Where(i => _context.ShipmentItems.Any(si => si.ShipmentId == shipment.Id && si.TrackedItemId == i.Id))
-            .ToListAsync();
+        var items = await LoadShipmentItemsAsync(shipment);
         if (items.Count == 0)
         {
             throw Errors.ShipmentHasNoItems(shipment.TrackingNumber);
         }
 
+        return await RecordForItemsAsync(shipment, items, eventTypeCode, locationId, occurredAt, note, legId,
+            isSystemManaged, reasonCode, latitude, longitude);
+    }
+
+    // Tracked, so events can update their current state.
+    private Task<List<TrackedItem>> LoadShipmentItemsAsync(Shipment shipment) =>
+        _context.TrackedItems
+            .Where(i => _context.ShipmentItems.Any(si => si.ShipmentId == shipment.Id && si.TrackedItemId == i.Id))
+            .ToListAsync();
+
+    private async Task<int> RecordForItemsAsync(
+        Shipment shipment, List<TrackedItem> items, string eventTypeCode, int? locationId, DateTime occurredAt,
+        string? note, int? legId, bool isSystemManaged, string? reasonCode = null,
+        decimal? latitude = null, decimal? longitude = null)
+    {
         var eventType = await _recorder.GetEventTypeAsync(eventTypeCode);
         await _recorder.AddEventsAsync(items, eventType, new EventContext(
             locationId, occurredAt, EventSource.Shipment, note, latitude, longitude,
@@ -560,6 +592,7 @@ public class ShipmentService : IShipmentService
         shipment.CustomsStatus = fields.CustomsStatus
             ?? (origin.Country != destination.Country ? CustomsStatus.Pending : CustomsStatus.NotRequired);
         shipment.PlannedPickupAt = fields.PlannedPickupAt?.UtcDateTime;
+        shipment.RequiresSignature = fields.RequiresSignature ?? (isNew || shipment.RequiresSignature);
         shipment.Notes = QueryHelpers.NullIfBlank(fields.Notes);
     }
 

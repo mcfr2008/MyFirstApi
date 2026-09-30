@@ -84,6 +84,9 @@ public class ShipmentFields : IValidatableObject
 
     public DateTimeOffset? PlannedPickupAt { get; set; }
 
+    // Delivery must be confirmed with a receiver signature (proof of delivery). Default true.
+    public bool? RequiresSignature { get; set; }
+
     [StringLength(2000)]
     public string? Notes { get; set; }
 
@@ -309,6 +312,9 @@ public class ShipmentResponse
     public string? Incoterm { get; set; }
     public CustomsStatus CustomsStatus { get; set; }
     public DateTime? PlannedPickupAt { get; set; }
+    public bool RequiresSignature { get; set; }
+    // True once a proof of delivery (signature) exists.
+    public bool HasProofOfDelivery { get; set; }
     // ETA of the last leg.
     public DateTime? EstimatedArrival { get; set; }
     public DateTime? DeliveredAt { get; set; }
@@ -321,7 +327,7 @@ public class ShipmentResponse
     public DateTime UpdatedAt { get; set; }
     public string? CreatedBy { get; set; }
 
-    public static ShipmentResponse From(Shipment shipment, int itemCount)
+    public static ShipmentResponse From(Shipment shipment, int itemCount, bool hasProofOfDelivery = false)
     {
         var now = DateTime.UtcNow;
         var legs = shipment.Legs.OrderBy(l => l.Sequence).ToList();
@@ -340,6 +346,8 @@ public class ShipmentResponse
             Incoterm = shipment.Incoterm,
             CustomsStatus = shipment.CustomsStatus,
             PlannedPickupAt = shipment.PlannedPickupAt,
+            RequiresSignature = shipment.RequiresSignature,
+            HasProofOfDelivery = hasProofOfDelivery,
             EstimatedArrival = legs.LastOrDefault()?.PlannedArrival,
             DeliveredAt = shipment.DeliveredAt,
             CurrentLegSequence = legs.FirstOrDefault(l => !l.ActualArrival.HasValue)?.Sequence,

@@ -1,0 +1,26 @@
+meta {
+  name: Proof of delivery - not an image (400)
+  type: http
+  seq: 27
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{shipmentId}}/proof-of-delivery
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  signature: @file(fixtures/not-an-image.png)
+  receiverName: Tanaka Hiroshi
+  receiverRelation: Recipient
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "INVALID_FILE_TYPE"
+}
+
+docs {
+  File types are checked from the content, not the file name.
+}

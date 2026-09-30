@@ -37,6 +37,10 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
   - Legs record carrier, vehicle, voyage/flight number, ETD/ETA vs ATD/ATA with delay calculation, and transport documents (B/L, AWB, ...).
   - Incoterms and customs hold/clear.
   - Every departure, arrival and delivery records events for all items in the shipment.
+- **Proof of delivery**
+  - The receiver **signs on the courier's device**, optionally with photos. The API stores the signature image with its SHA-256, the receiver's name and relation, GPS and time.
+  - The same request delivers the shipment. Items the receiver refuses get `DELIVERY_FAILED` with a reason instead.
+  - Shipments require a signature by default.
 - **Built for growth**
   - Monthly-partitioned history with partitions created ahead automatically.
   - Cursor paging, trigram search indexes and a master-data cache.
@@ -104,6 +108,8 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
 | Tracking events | `GET/POST /api/v1/TrackingEvents` · `POST /scan` · `GET /{id}` · `POST /{id}/void` · `POST /{id}/correct` |
 | Containers | master-data endpoints (below) + `GET /{id}/contents` · `POST /{id}/load` · `/unload` · `/scan` |
 | Shipments | `GET/POST /api/v1/Shipments` · `GET/PUT /{id}` · `GET /by-tracking/{no}` · `PUT /{id}/legs/{legId}` · `POST /{id}/legs/{legId}/depart` · `/arrive` · `GET/POST /{id}/items` · `DELETE /{id}/items/{itemId}` · `POST /{id}/customs` · `/events` · `/deliver` · `/cancel` |
+| Proof of delivery | `POST /api/v1/Shipments/{id}/proof-of-delivery` (multipart) · `GET /api/v1/Shipments/{id}/proof-of-delivery` |
+| Files | `GET /api/v1/Files/{id}` (signature / photo download, bearer token required) |
 | Master data | `ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, each with `GET` (search, filters, paging) · `POST` · `GET/PUT /{id}` · `GET /by-code/{code}` · `DELETE /{id}` (deactivate) · `POST /{id}/activate` |
 | Legacy | `/api/v1/Products` CRUD (sample from before Thing-Tag) |
 
@@ -125,6 +131,33 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
 - **Paging**
   - Master data, items and shipments use page numbers (`page`, `pageSize`).
   - Tracking events use **cursor paging**: pass `nextCursor` back as `?cursor=`, and read `totalCount` only when you ask for it with `includeTotalCount=true`.
+
+## Proof of delivery
+
+When the courier hands over a shipment, the receiver signs on the courier's device, for example with a signature pad on a canvas. The app sends **one `multipart/form-data` request**:
+
+| Field | Required | Notes |
+|---|---|---|
+| `signature` | ✔ | Image: PNG (from a canvas), JPEG or WebP, up to 1 MB |
+| `photos` | | Up to 5 images, 5 MB each (the parcel at the door) |
+| `receiverName` | ✔ | Who signed |
+| `receiverRelation` | ✔ | `Recipient`, `FamilyMember`, `Colleague`, `Reception`, `Security`, `Neighbor` or `Other` |
+| `signedAt`, `latitude`, `longitude`, `locationAccuracyMeters`, `deviceInfo`, `note` | | `signedAt` defaults to now |
+| `refusedItems[i].tagCode` / `.reasonCode` / `.note` | | Items the receiver refused, with a `DELIVERY_FAILED` reason such as `REFUSED` |
+
+In one transaction, the API:
+- Checks the files by their **content**, not the file name or declared type, so a renamed text file is rejected.
+- Stores the files with their **SHA-256**.
+- Saves the proof, marks the shipment **Delivered**, and records `DELIVERED` for received items and `DELIVERY_FAILED` for refused ones.
+- Deletes the uploaded files if anything fails, so nothing is left half-saved.
+
+**Rules**
+- **Signature required by default.** Shipments have `requiresSignature = true`, so plain `/deliver` returns `409 SIGNATURE_REQUIRED`. Set `requiresSignature: false` on a shipment to allow delivery without a signature.
+- **One proof per shipment.** A second one returns `409 PROOF_OF_DELIVERY_EXISTS`.
+
+**Files**
+- **Storage.** Files are stored under `FileStorage:RootPath` (`App_Data/files` by default; Docker Compose uses the `files-data` volume). They're served by `GET /api/v1/Files/{id}` with the bearer token, so a frontend fetches the image as a blob rather than using `<img src>`.
+- **Personal data.** Signatures and photos are personal data under PDPA; role-based access to them comes with the permissions phase.
 
 ## Authentication and authorization
 
@@ -160,6 +193,7 @@ docker compose up --build     # API: http://localhost:5106/swagger
 
 - **Ports.** The database is exposed on host port **5433**, so it doesn't clash with a local PostgreSQL. You can change it in `.env`.
 - **Schema updates.** `db-migrate` re-applies the idempotent scripts on every start, so new scripts are picked up automatically.
+- **Uploaded files.** Signatures and photos go to the `files-data` volume. The API container runs as the non-root `app` user.
 - **Stopping.** `docker compose down` keeps the data. Add `-v` to delete the database.
 
 ### Manual setup
@@ -209,6 +243,7 @@ done
 | `022`–`024` | Reason codes (+ seed), void/correction columns |
 | `025`–`027` | Performance: monthly partitioning of `TrackingEvents`, trigram search indexes, foreign-key indexes |
 | `028` | `English \| ภาษาไทย` comments on every table and column |
+| `029` | Proof of delivery: stored files, proofs, photos, `Shipments.RequiresSignature` |
 
 #### 4. Run
 
@@ -252,7 +287,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (209 requests). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (215 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -296,8 +331,9 @@ Before deploying beyond local development:
 
 1. **Move secrets out of `appsettings.json`.** The DB password and JWT key there are development values and are public in this repository's history, so **generate a new JWT key**.
 2. **Change the seeded `admin` password.**
-3. **Apply per-endpoint permissions** to the Thing-Tag endpoints (planned) and review the `RolePermissions` table.
-4. **Set `Cors:AllowedOrigins`** to the real frontend origin only, use HTTPS everywhere, and add rate limiting and monitoring.
+3. **Restrict access to signatures and delivery photos.** They are personal data (PDPA). Use cloud storage with encryption and backups for `FileStorage` in production.
+4. **Apply per-endpoint permissions** to the Thing-Tag endpoints (planned) and review the `RolePermissions` table.
+5. **Set `Cors:AllowedOrigins`** to the real frontend origin only, use HTTPS everywhere, and add rate limiting and monitoring.
 
 ## Roadmap
 
@@ -308,7 +344,8 @@ Before deploying beyond local development:
 - [x] Partitioning, cursor paging, search indexes and maintenance tooling
 - [x] API versioning (`/api/v1`), coded bilingual error catalog, configurable CORS, Docker Compose stack
 - [ ] Public tracking page API (no login, by tracking number)
-- [ ] Proof of delivery (photo, signature) and document attachments
+- [x] Proof of delivery: receiver signature, photos, GPS, refused items
+- [ ] Document attachments (B/L, invoices) on the same file storage
 - [ ] Dashboards / reports and notifications (email, webhook)
 - [ ] Audit log
 - [ ] Per-endpoint permissions for Thing-Tag features, user management, refresh tokens

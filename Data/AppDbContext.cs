@@ -26,6 +26,8 @@ public class AppDbContext : DbContext
     public DbSet<ShipmentItem> ShipmentItems { get; set; }
     public DbSet<ShipmentLeg> ShipmentLegs { get; set; }
     public DbSet<ReasonCode> ReasonCodes { get; set; }
+    public DbSet<StoredFile> StoredFiles { get; set; }
+    public DbSet<ProofOfDelivery> ProofsOfDelivery { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -127,6 +129,34 @@ public class AppDbContext : DbContext
         });
 
         modelBuilder.Entity<ReasonCode>().HasIndex(r => r.Code).IsUnique();
+
+        modelBuilder.Entity<StoredFile>(entity =>
+        {
+            entity.HasIndex(f => f.StorageKey).IsUnique();
+            entity.Property(f => f.Purpose).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<ProofOfDelivery>(entity =>
+        {
+            entity.ToTable("ProofsOfDelivery");
+            entity.HasIndex(p => p.ShipmentId).IsUnique();
+            entity.Property(p => p.ReceiverRelation).HasConversion<string>();
+            entity.Property(p => p.RefusedItems).HasColumnType("jsonb");
+            entity.HasOne(p => p.Shipment).WithMany()
+                .HasForeignKey(p => p.ShipmentId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(p => p.SignatureFile).WithMany()
+                .HasForeignKey(p => p.SignatureFileId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(p => p.Photos).WithOne()
+                .HasForeignKey(ph => ph.ProofOfDeliveryId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProofOfDeliveryPhoto>(entity =>
+        {
+            entity.ToTable("ProofOfDeliveryPhotos");
+            entity.HasKey(ph => new { ph.ProofOfDeliveryId, ph.FileId });
+            entity.HasOne(ph => ph.File).WithMany()
+                .HasForeignKey(ph => ph.FileId).OnDelete(DeleteBehavior.Restrict);
+        });
 
         modelBuilder.Entity<Shipment>(entity =>
         {

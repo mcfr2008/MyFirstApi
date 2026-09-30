@@ -21,3 +21,6 @@ bruno/.env
 
 # Local environment for docker compose
 .env
+
+# Uploaded files in local development (signatures, delivery photos)
+App_Data/

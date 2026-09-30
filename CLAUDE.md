@@ -92,6 +92,19 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
 
 The dev PostgreSQL database runs in a Docker container named `postgres-server`, and `psql` isn't installed on the host. Apply a script with `docker exec -i postgres-server psql -U postgres -d myfirstapi_db -v ON_ERROR_STOP=1 < Scripts/NNN_x.sql`. The seeded login is `admin` / `ChangeMe123!` (see `Scripts/003_users_seed_admin.sql`).
 
+### Proof of delivery and file storage
+
+- **Endpoint.** `POST /api/v1/Shipments/{id}/proof-of-delivery` (multipart, `ShipmentService.ProofOfDelivery.cs`, a partial class of `ShipmentService`) does everything in one `SaveChanges`:
+  - validates image files by magic bytes (`Services/FileSignatures.cs`)
+  - stores them through `IFileStorage`
+  - saves `ProofOfDelivery`, `StoredFile` and photo rows
+  - delivers the shipment and records `DELIVERED` / `DELIVERY_FAILED` (refused items) events
+- **Cleanup.** If anything fails after files were written, they are deleted in the `catch`.
+- **Signature rule.** `Shipment.RequiresSignature` (default true) makes plain `/deliver` return `SIGNATURE_REQUIRED`. `EnsureDeliverable` holds the shared delivery checks.
+- **Storage.** `IFileStorage` is implemented by `LocalFileStorage` (disk under `FileStorage:RootPath`, default `App_Data/files`, which is git-ignored and a Docker volume). A cloud implementation can replace it.
+  - `StoredFile.Id` is a random GUID used in `GET /api/v1/Files/{id}`, and `Sha256` is kept as tamper evidence and the ETag.
+- **JSON keys.** `ProofOfDelivery.RefusedItems` is jsonb with camelCase keys (`[JsonPropertyName]`), so SQL like `->>'reasonCode'` matches the API.
+
 ### Performance and data growth
 
 `TrackingEvents` is the fast-growing table. `Scripts/maintenance/README.md` has the preventive-maintenance plan and the before/after benchmarks.
@@ -117,7 +130,8 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
 `Scripts/` holds numbered, idempotent SQL files (`CREATE TABLE IF NOT EXISTS`, `ON CONFLICT DO NOTHING`), one per feature, schema before seed. When adding a table/column:
 1. Add a new `NNN_*.sql` file (next number) and add an `\ir` line for it in `Scripts/run_all.sql`.
 2. Update the entity in `Models/` and `DbSet`/`OnModelCreating` in `AppDbContext` to match. The two must be kept in sync manually.
-3. Add a `COMMENT ON TABLE` / `COMMENT ON COLUMN` for every new table and column, written as `'English | ภาษาไทย'`. For enum columns, list the allowed values. Put it in the same script or in `Scripts/028_table_column_comments.sql`. `health_check.sql` section 7 lists anything left undocumented.
+3. **Scripts must survive being re-run in full.** `db-migrate` in docker-compose runs `run_all.sql` on every start. Guard anything that depends on objects a later script removes; see the `Category` index in `006`. Test by running every script twice on an empty database.
+4. Add a `COMMENT ON TABLE` / `COMMENT ON COLUMN` for every new table and column, written as `'English | ภาษาไทย'`. For enum columns, list the allowed values. Put it in the same script or in `Scripts/028_table_column_comments.sql`. `health_check.sql` section 7 lists anything left undocumented.
 
 ### Authorization (database-driven permissions)
 
