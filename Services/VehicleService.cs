@@ -59,16 +59,16 @@ public class VehicleService
     protected override async Task ValidateAsync(Vehicle entity, VehicleRequest request)
     {
         var carrier = await ReferenceResolver.ResolveAsync(
-            Context.Carriers.AsNoTracking(), request.CarrierId, entity.CarrierId, "Carrier");
+            Context.Carriers.AsNoTracking(), request.CarrierId, entity.CarrierId, "carrierId");
 
         var mode = request.Mode!.Value;
         if (carrier != null && !carrier.Modes.Contains(mode.ToString()))
         {
-            throw new BusinessRuleException($"Carrier {carrier.Code} does not operate {mode} transport.");
+            throw Errors.CarrierModeNotSupported(carrier.Code, mode);
         }
         if (request.ImoNumber != null && mode != TransportMode.Sea)
         {
-            throw new BusinessRuleException("ImoNumber applies to Sea vehicles (vessels) only.");
+            throw Errors.ImoOnlyForSea();
         }
     }
 

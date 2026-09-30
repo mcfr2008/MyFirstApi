@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/api/Parties
+  url: {{baseUrl}}/api/v1/Parties
   body: json
   auth: inherit
 }
@@ -28,4 +28,5 @@ body:json {
 
 assert {
   res.status: eq 409
+  res.body.code: eq "CODE_ALREADY_EXISTS"
 }

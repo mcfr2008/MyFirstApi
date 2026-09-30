@@ -9,14 +9,14 @@ public class EventDetails : IValidatableObject
     // Allowed clock skew for OccurredAt values slightly in the future.
     private static readonly TimeSpan MaxFutureSkew = TimeSpan.FromMinutes(10);
 
-    // Code from /api/EventTypes, e.g. ARRIVED_AT_HUB.
+    // Code from /api/v1/EventTypes, e.g. ARRIVED_AT_HUB.
     [Required]
     [StringLength(50)]
     public string EventTypeCode { get; set; } = string.Empty;
 
     public int? LocationId { get; set; }
 
-    // Code from /api/ReasonCodes; required when the event type has RequiresReason.
+    // Code from /api/v1/ReasonCodes; required when the event type has RequiresReason.
     [StringLength(50)]
     public string? ReasonCode { get; set; }
 

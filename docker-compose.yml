@@ -1,0 +1,56 @@
+# Local development stack: PostgreSQL + schema scripts + API.
+#
+#   docker compose up --build        # API on http://localhost:5106/swagger
+#   docker compose down              # stop (data is kept in the db-data volume)
+#   docker compose down -v           # stop and delete the database
+#
+# Settings come from .env (copy .env.example); the defaults below are for local use only.
+
+name: thingtag
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: myfirstapi_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-thingtag-dev}
+    ports:
+      # 5433 on the host so it doesn't clash with a PostgreSQL already on 5432.
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d myfirstapi_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Applies Scripts/run_all.sql on every start. The scripts are idempotent,
+  # so this creates the schema the first time and adds new scripts later.
+  db-migrate:
+    image: postgres:18
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-thingtag-dev}
+    volumes:
+      - ./Scripts:/scripts:ro
+    command: ["psql", "-h", "db", "-U", "postgres", "-d", "myfirstapi_db", "-v", "ON_ERROR_STOP=1", "-q", "-f", "/scripts/run_all.sql"]
+    restart: "no"
+
+  api:
+    build: .
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=myfirstapi_db;Username=postgres;Password=${DB_PASSWORD:-thingtag-dev}"
+      Jwt__Key: ${JWT_KEY:-thingtag-local-development-only-signing-key-change-me}
+    ports:
+      - "${API_PORT:-5106}:8080"
+
+volumes:
+  db-data:

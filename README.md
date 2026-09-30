@@ -1,433 +1,335 @@
-# MyFirstApi
+# Thing-Tag API
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![C#](https://img.shields.io/badge/C%23-13-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-Swagger-85EA2D?logo=swagger&logoColor=black)](https://swagger.io/specification/)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey)](#license)
 
-> A clean and extensible RESTful Web API built with ASP.NET Core, featuring JWT authentication, product CRUD operations, Entity Framework Core, and a service-based architecture.
+> **Thing-Tag** is an intelligent end-to-end tracking system that follows the movement of any item from origin to destination, with the visibility of a professional logistics network.
+>
+> **Thing-Tag** คือระบบติดตามอัจฉริยะที่ออกแบบมาเพื่อเกาะติดทุกการเคลื่อนไหวของสิ่งของทุกประเภท ตั้งแต่ต้นทางจนถึงปลายทางอย่างไร้รอยต่อ มอบประสบการณ์การขนส่งที่โปร่งใสและตรวจสอบได้จริง เหมือนกับระบบโลจิสติกส์มาตรฐานระดับสากล
 
-## Overview
-
-**MyFirstApi** is a RESTful API built with **ASP.NET Core 10** and **C#**. The project demonstrates a practical API architecture with controller-based routing, dependency injection, a service layer, Entity Framework Core, PostgreSQL, OpenAPI/Swagger, and JWT bearer authentication.
-
-The current implementation provides:
-
-- Authentication through a JWT-based login endpoint
-- Product CRUD operations
-- Service and interface abstractions for business logic
-- Entity Framework Core with PostgreSQL
-- OpenAPI/Swagger documentation for development
-- HTTPS redirection and authentication/authorization middleware
-
-## Architecture
-
-The application follows a lightweight layered architecture:
-
-```text
-Client
-  |
-  v
-Controllers
-  |
-  v
-Services / Interfaces
-  |
-  v
-Entity Framework Core
-  |
-  v
-PostgreSQL Database
-```
-
-### Main responsibilities
-
-| Layer | Responsibility |
-|---|---|
-| `Controllers/` | HTTP endpoints, request handling, and HTTP responses |
-| `Services/` | Business logic and application operations |
-| `Interfaces/` | Service contracts and dependency inversion |
-| `Data/` | Entity Framework Core database context |
-| `Models/` | Domain/data models |
-| `Program.cs` | Dependency injection, middleware, authentication, OpenAPI, and application startup |
+This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built with **ASP.NET Core 10**, **Entity Framework Core** and **PostgreSQL**. It serves JSON only; a separate frontend consumes it.
 
 ## Features
 
-### Authentication
+- **Tagged items**
+  - Register items with a QR, barcode or RFID tag code, or let the API generate one (`TT-XXXXXXXXXX`).
+  - Register up to 500 items at once, all-or-nothing.
+  - Store category-specific attributes and customs data (HS code, country of origin, currency).
+  - Archive instead of delete, so history is kept.
+- **Master data**
+  - Item categories, including dangerous goods (UN number, hazard class).
+  - Locations: warehouses, hubs, ports, airports, rail stations, with UN/LOCODE, IATA code and time zone.
+  - Parties, event types, reason codes, carriers, vehicles and containers.
+- **Tracking events**
+  - An item's status and location change **only** through events: a single record or a bulk scan of many tags at once.
+  - Full timelines per item.
+  - Wrong events are **voided or corrected** with an audit trail, and the item's state is recalculated.
+  - Exception events (failed delivery, damage, loss, customs hold) require a **reason code**.
+- **Containers and consolidation**
+  - Nest handling units: item → pallet → container.
+  - ISO 6346 container-number validation.
+  - Load and unload, and one scan of a container records the event for everything inside.
+- **Multimodal shipments**
+  - Shipments move over ordered **legs** by road, rail, air, sea or courier.
+  - Legs record carrier, vehicle, voyage/flight number, ETD/ETA vs ATD/ATA with delay calculation, and transport documents (B/L, AWB, ...).
+  - Incoterms and customs hold/clear.
+  - Every departure, arrival and delivery records events for all items in the shipment.
+- **Built for growth**
+  - Monthly-partitioned history with partitions created ahead automatically.
+  - Cursor paging, trigram search indexes and a master-data cache.
+  - Preventive-maintenance tooling (see [Performance and maintenance](#performance-and-maintenance)).
+- **Security**
+  - JWT authentication and database-driven, permission-based authorization.
+- **Self-documenting database**
+  - Every table and column has an `English | ภาษาไทย` comment, visible in DBeaver or pgAdmin.
 
-The API exposes `POST /api/Auth/login` and `POST /api/Auth/register`, backed by a `Users` table in PostgreSQL (see `Scripts/002_users_table.sql`). Passwords are hashed with BCrypt, and each user has a `Role` (a free-text string, so custom roles beyond `Admin`/`User` are supported). Successful logins return a JWT containing a `role` claim.
+## Architecture
 
-JWT validation is configured with issuer, audience, lifetime, and signing-key validation.
-
-### Authorization
-
-The API is **secure by default**: a global fallback policy (`Program.cs`) requires every request to be authenticated unless the endpoint is explicitly marked `[AllowAnonymous]` (currently only `POST /api/Auth/login`).
-
-Beyond that, access control is **database-driven** rather than hardcoded. Two tables control it:
-
-- `Permissions` — the catalog of permission codes (e.g. `Products.Create`).
-- `RolePermissions` — which `Role` (the same free-text value stored on `Users.Role`) grants which permission.
-
-Controller actions are decorated with `[Authorize(Policy = "...")]` using constants from `Authorization/Permissions.cs`:
-
-| Endpoint | Permission required |
-|---|---|
-| `POST /api/Auth/login` | Anonymous |
-| `POST /api/Auth/register` | `Auth.Register` |
-| `GET /api/Products`, `GET /api/Products/{id}` | `Products.Read` |
-| `POST /api/Products` | `Products.Create` |
-| `PUT /api/Products/{id}` | `Products.Update` |
-| `DELETE /api/Products/{id}` | `Products.Delete` |
-
-At request time, a custom `IAuthorizationPolicyProvider` (`Authorization/PermissionPolicyProvider.cs`) turns the policy name from the attribute into a `PermissionRequirement`, and `Authorization/PermissionAuthorizationHandler.cs` checks it against `RolePermissions` for the caller's role(s) (from the JWT's role claim) via `AppDbContext`. **Granting or revoking a permission is a data change** — insert or delete a row in `RolePermissions` — not a code change or redeploy; adding a brand-new permission only needs a new `Permissions` row plus the matching attribute on an action.
-
-`Scripts/003_users_seed_admin.sql` creates one bootstrap `admin` account (see the script for the default credentials), and `Scripts/005_permissions_seed.sql` grants the `Admin` role every permission and the `User` role `Products.Read` only — together giving `POST /api/Auth/register` an initial account to authenticate as. **Change that password immediately** after first login.
-
-Swagger UI has a bearer-token "Authorize" button configured (`Program.cs`) for exercising protected endpoints during development.
-
-### Product Management
-
-`ProductsController` provides the following CRUD endpoints (see the Authorization table above for permission requirements):
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/Products` | Retrieve all products |
-| `GET` | `/api/Products/{id}` | Retrieve a product by ID |
-| `POST` | `/api/Products` | Create a product |
-| `PUT` | `/api/Products/{id}` | Update a product |
-| `DELETE` | `/api/Products/{id}` | Delete a product |
-
-The `Product` model currently contains:
-
-```json
-{
-  "id": 1,
-  "name": "Example Product",
-  "price": 99.99
-}
+```text
+Client (frontend, scanner app)
+        │  JSON over HTTPS, JWT bearer
+        ▼
+Controllers            ← HTTP endpoints, DTO validation (400 ProblemDetails)
+        ▼
+Services / Interfaces  ← business rules; errors → ProblemDetails { code, args }
+        ▼
+Entity Framework Core  ← AppDbContext
+        ▼
+PostgreSQL             ← schema from numbered SQL scripts (no EF migrations)
 ```
 
-## Technology Stack
+| Folder | Responsibility |
+|---|---|
+| `Controllers/` | HTTP endpoints. Master data shares one generic `MasterDataController`. |
+| `Services/` | Business logic. Master data shares `MasterDataService`. `TrackingEventRecorder` is the single place that records events. |
+| `Interfaces/` | Service contracts |
+| `Dtos/` | Request/response models and validation. Entities are never returned directly. |
+| `Models/` | EF Core entities and enums |
+| `Exceptions/` | Error catalog (`Errors.cs`: stable codes with English and Thai templates), `ApiException`, and `ApiExceptionHandler` that maps them to ProblemDetails |
+| `Authorization/` | Permission policy provider and handler |
+| `Data/` | `AppDbContext` |
+| `Scripts/` | Numbered SQL scripts; also `maintenance/` and `dev/` tools |
+| `bruno/` | Bruno API test collection |
 
-- **Framework:** ASP.NET Core 10
-- **Language:** C#
-- **Runtime Target:** .NET 10
-- **ORM:** Entity Framework Core
-- **Database:** PostgreSQL
-- **PostgreSQL Provider:** Npgsql.EntityFrameworkCore.PostgreSQL
-- **Authentication:** JWT Bearer
-- **API Documentation:** OpenAPI / Swagger
-- **Dependency Injection:** Built-in ASP.NET Core DI container
+### Tracking model
 
-> The project currently targets .NET 10 while several Entity Framework Core and Npgsql packages are on the 9.x major version. Keep package versions aligned with your intended .NET/EF Core release before production deployment.
+```text
+TrackedItem ──< TrackingEvent >── EventType (→ ResultingStatus)
+     │               │  └──────── ReasonCode (exceptions)
+     │               └─ Location, Shipment/Leg, Container
+     ├── CurrentLocation / Status / LastEventAt   (current state, updated by events)
+     └── CurrentContainer ── Container ── ParentContainer ...
 
-## Prerequisites
+Shipment ──< ShipmentLeg (Road → Sea → Road ...)
+     └────< ShipmentItem >── TrackedItem
+```
 
-Install the following before running the project:
+- **Current state is stored on the item**, so "where is it now?" never reads history.
+- **Events are never edited or deleted.** A void keeps the original, flags it and recalculates the item.
+- **An event older than the item's latest one** is kept in history but doesn't rewind the item.
+- **Events recorded by a shipment or container operation** are undone through that operation (for example, unload the container), not voided directly.
+
+## API overview
+
+All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api/v2` so existing apps keep working. Every endpoint except login and the error catalog requires `Authorization: Bearer <token>`. Swagger UI is at `/swagger` in Development.
+
+| Area | Endpoints |
+|---|---|
+| Auth | `POST /api/v1/Auth/login` · `POST /api/v1/Auth/register` |
+| Error catalog | `GET /api/v1/ErrorCodes`: every error code with English and Thai message templates (no login needed) |
+| Tracked items | `GET/POST /api/v1/TrackedItems` · `POST /bulk` · `GET/PUT/DELETE /{id}` · `POST /{id}/restore` · `GET /by-tag/{tagCode}` |
+| Tracking events | `GET/POST /api/v1/TrackingEvents` · `POST /scan` · `GET /{id}` · `POST /{id}/void` · `POST /{id}/correct` |
+| Containers | master-data endpoints (below) + `GET /{id}/contents` · `POST /{id}/load` · `/unload` · `/scan` |
+| Shipments | `GET/POST /api/v1/Shipments` · `GET/PUT /{id}` · `GET /by-tracking/{no}` · `PUT /{id}/legs/{legId}` · `POST /{id}/legs/{legId}/depart` · `/arrive` · `GET/POST /{id}/items` · `DELETE /{id}/items/{itemId}` · `POST /{id}/customs` · `/events` · `/deliver` · `/cancel` |
+| Master data | `ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, each with `GET` (search, filters, paging) · `POST` · `GET/PUT /{id}` · `GET /by-code/{code}` · `DELETE /{id}` (deactivate) · `POST /{id}/activate` |
+| Legacy | `/api/v1/Products` CRUD (sample from before Thing-Tag) |
+
+**Conventions**
+- **Enums** are strings, for example `"InTransit"` or `"Sea"`.
+- **Timestamps** are UTC. Requests accept any ISO timestamp with an offset.
+- **Errors** are always **ProblemDetails** (RFC 9457) with a stable **`code`**, so the UI can show them in Thai or English:
+  ```json
+  { "status": 400, "title": "Bad Request",
+    "detail": "Item 2: Category FOOD requires attributes: expiry",
+    "code": "ITEM_MISSING_REQUIRED_ATTRIBUTES",
+    "args": { "category": "FOOD", "attributes": ["expiry"] },
+    "scope": { "kind": "item", "number": 2 } }
+  ```
+  - `detail` is the English message.
+  - To translate, look up `code` in `GET /api/v1/ErrorCodes` and fill the `th` template with `args`, for example `ประเภท {category} ต้องกรอกข้อมูลเพิ่มเติม: {attributes}`.
+  - `scope` tells you which entry of a batch request failed.
+  - Framework errors carry codes too: `VALIDATION_FAILED` (field messages in `errors`), `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND` and `INTERNAL_ERROR`.
+- **Paging**
+  - Master data, items and shipments use page numbers (`page`, `pageSize`).
+  - Tracking events use **cursor paging**: pass `nextCursor` back as `?cursor=`, and read `totalCount` only when you ask for it with `includeTotalCount=true`.
+
+## Authentication and authorization
+
+- **Login** (`POST /api/v1/Auth/login`) returns a JWT with a `role` claim, valid for 2 hours. Passwords are hashed with BCrypt.
+- **Secure by default.** A global fallback policy requires an authenticated user on every endpoint except login.
+- **Permissions are data, not code.** Actions use `[Authorize(Policy = "...")]`, and `Authorization/PermissionAuthorizationHandler.cs` checks the caller's role against the `RolePermissions` table on each request. Granting or revoking access means changing a row, not redeploying.
+- **Seeded accounts and roles.** `Scripts/003_users_seed_admin.sql` creates a bootstrap `admin` account; **change its password immediately**. `Scripts/005_permissions_seed.sql` grants the `Admin` role everything.
+
+> **Current phase:** Thing-Tag endpoints don't have per-endpoint permissions yet, so any logged-in user can call them. Permissions will be added for all features together once the feature set is complete.
+
+## Technology stack
+
+- **ASP.NET Core 10** / C# with controllers, the built-in DI container, `IExceptionHandler`, ProblemDetails, **Asp.Versioning** and a hosted background service
+- **Docker Compose** for the local stack (PostgreSQL 18 + schema scripts + API)
+- **Entity Framework Core 9** with **Npgsql**, using `jsonb` for item attributes and `text[]` for list columns
+- **PostgreSQL 14+** with range partitioning and `pg_trgm`. Development uses PostgreSQL 18 in Docker.
+- **JWT Bearer** authentication and **BCrypt** password hashing
+- **OpenAPI / Swagger** (Swashbuckle)
+- **Bruno** for API testing
+
+> EF Core and Npgsql are on 9.x while the app targets .NET 10. Align the versions before a production release.
+
+## Getting started
+
+### Quick start with Docker Compose
+
+This needs only Docker. It starts PostgreSQL, applies all SQL scripts, and runs the API:
+
+```bash
+cp .env.example .env          # optional: change passwords / JWT key / ports
+docker compose up --build     # API: http://localhost:5106/swagger
+```
+
+- **Ports.** The database is exposed on host port **5433**, so it doesn't clash with a local PostgreSQL. You can change it in `.env`.
+- **Schema updates.** `db-migrate` re-applies the idempotent scripts on every start, so new scripts are picked up automatically.
+- **Stopping.** `docker compose down` keeps the data. Add `-v` to delete the database.
+
+### Manual setup
+
+#### 1. Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- PostgreSQL Server 14+ or another compatible PostgreSQL installation
-- An IDE/editor such as Visual Studio, JetBrains Rider, or Visual Studio Code
-- Git
-
-Verify the .NET SDK:
+- PostgreSQL 14+, for example with Docker:
 
 ```bash
-dotnet --version
+docker run --name postgres-server -e POSTGRES_PASSWORD=<password> -p 5432:5432 -d postgres:18
+docker exec postgres-server createdb -U postgres myfirstapi_db
 ```
 
-## Getting Started
+#### 2. Configure
 
-### 1. Clone the repository
+`appsettings.json` holds the connection string and JWT settings. For anything beyond local development, override them with `dotnet user-secrets` or environment variables, and **don't commit real secrets**:
 
 ```bash
-git clone https://github.com/mcfr2008/MyFirstApi.git
-cd MyFirstApi
+export ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=myfirstapi_db;Username=postgres;Password=<password>"
+export Jwt__Key="<long-random-secret>"
 ```
 
-### 2. Restore dependencies
+#### 3. Create the schema
 
-```bash
-dotnet restore
-```
+The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `028`). Re-running them only applies what's new.
 
-### 3. Configure the database
-
-Create a PostgreSQL database for the application, then configure the connection string through a secure configuration mechanism.
-
-Recommended local-development approaches include:
-
-- `dotnet user-secrets`
-- Environment variables
-- A local, untracked configuration file
-
-Example configuration shape:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=myfirstapi_db;Username=<username>;Password=<password>"
-  },
-  "Jwt": {
-    "Key": "<strong-random-secret>",
-    "Issuer": "MyFirstApi",
-    "Audience": "MyFirstApiClient"
-  }
-}
-```
-
-**Never commit real database passwords, JWT signing keys, API keys, or other secrets to a public repository.**
-
-### 4. Create the schema
-
-The `Scripts/` folder holds one numbered SQL file per feature (schema first, then seed data), plus `run_all.sql` to run them all in order:
-
-| File | Purpose |
-|---|---|
-| `001_products_table.sql` | `Products` table |
-| `002_users_table.sql` | `Users` table |
-| `003_users_seed_admin.sql` | Bootstrap `admin` account |
-| `004_permissions_tables.sql` | `Permissions` and `RolePermissions` tables |
-| `005_permissions_seed.sql` | Permission catalog + default role grants |
+With `psql` installed on the host:
 
 ```bash
 psql -h localhost -p 5432 -U postgres -d myfirstapi_db -f Scripts/run_all.sql
 ```
 
-Each file is also safe to run standalone (`CREATE TABLE IF NOT EXISTS` / `ON CONFLICT DO NOTHING`), so re-running `run_all.sql` after adding a new numbered file only applies what's new.
-
-### 5. Run the API
+With PostgreSQL in Docker (the `\ir` includes in `run_all.sql` don't work over stdin, so run the files in order):
 
 ```bash
-dotnet run
+for f in Scripts/0*.sql; do
+  docker exec -i postgres-server psql -U postgres -d myfirstapi_db -v ON_ERROR_STOP=1 < "$f" || break
+done
 ```
 
-The application uses the launch profile in `Properties/launchSettings.json` when started from supported development environments.
+| Scripts | Contents |
+|---|---|
+| `001`–`005` | Products, users, admin account, permissions |
+| `006`–`012` | Tracked items; item categories, locations, parties, event types (+ seed) |
+| `013`–`021` | Multimodal: location codes/time zones, dangerous goods, carriers, vehicles, containers, customs fields, shipments/legs, tracking events, multimodal event types |
+| `022`–`024` | Reason codes (+ seed), void/correction columns |
+| `025`–`027` | Performance: monthly partitioning of `TrackingEvents`, trigram search indexes, foreign-key indexes |
+| `028` | `English \| ภาษาไทย` comments on every table and column |
 
-## API Usage
-
-### Authentication
-
-Request a token:
-
-```http
-POST /api/Auth/login
-Content-Type: application/json
-
-{
-  "username": "<username>",
-  "password": "<password>"
-}
-```
-
-Successful response:
-
-```json
-{
-  "token": "<jwt-token>"
-}
-```
-
-For endpoints protected with authorization, send the token using the standard bearer scheme:
-
-```http
-Authorization: Bearer <jwt-token>
-```
-
-### List products
+#### 4. Run
 
 ```bash
-curl -X GET "https://localhost:<port>/api/Products"
+dotnet run                          # http://localhost:5106
+dotnet run --launch-profile https   # https://localhost:7195
 ```
 
-### Get a product
+Open `http://localhost:5106/swagger`, log in with `POST /api/v1/Auth/login`, and click **Authorize**.
+
+#### CORS (frontend origins)
+
+Browsers only let a frontend call the API from origins listed in `Cors:AllowedOrigins`.
+- **Development.** `appsettings.Development.json` allows the common dev servers: `http://localhost:3000` (React / Next.js), `:5173` (Vite) and `:4200` (Angular).
+- **Other environments.** Set the origins through configuration, for example `Cors__AllowedOrigins__0=https://app.example.com`.
+
+## Example
 
 ```bash
-curl -X GET "https://localhost:<port>/api/Products/1"
+# Log in
+TOKEN=$(curl -s -X POST http://localhost:5106/api/v1/Auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"<password>"}' | jq -r .token)
+
+# Register an item
+curl -X POST http://localhost:5106/api/v1/TrackedItems \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"tagCode":"QR-0001","name":"Notebook","currentLocationId":1}'
+
+# Scan several tags at a hub
+curl -X POST http://localhost:5106/api/v1/TrackingEvents/scan \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"tagCodes":["QR-0001","QR-0002"],"eventTypeCode":"ARRIVED_AT_HUB","locationId":1}'
+
+# Item timeline, oldest first
+curl "http://localhost:5106/api/v1/TrackingEvents?tagCode=QR-0001&oldestFirst=true" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-### Create a product
-
-```bash
-curl -X POST "https://localhost:<port>/api/Products" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Example Product",
-    "price": 99.99
-  }'
-```
-
-### Update a product
-
-```bash
-curl -X PUT "https://localhost:<port>/api/Products/1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Updated Product",
-    "price": 129.99
-  }'
-```
-
-### Delete a product
-
-```bash
-curl -X DELETE "https://localhost:<port>/api/Products/1"
-```
-
-## OpenAPI / Swagger
-
-In the development environment, the application enables OpenAPI and Swagger UI.
-
-Use Swagger UI to explore and test endpoints interactively after starting the application.
-
-Typical local URL:
-
-```text
-https://localhost:<port>/swagger
-```
-
-The exact port is defined by the active launch profile.
-
-## Project Structure
-
-```text
-MyFirstApi/
-├── Controllers/
-│   ├── AuthController.cs
-│   └── ProductsController.cs
-├── Data/
-│   └── AppDbContext.cs
-├── Interfaces/
-│   └── IProductService.cs
-├── Models/
-│   └── Product.cs
-├── Services/
-│   └── ProductService.cs
-├── Properties/
-│   └── launchSettings.json
-├── Program.cs
-├── MyFirstApi.csproj
-├── MyFirstApi.http
-├── appsettings.json
-└── appsettings.Development.json
-```
-
-## Development Guidelines
-
-For future development, consider the following practices:
-
-- Keep secrets outside source control.
-- Add database migrations and a documented migration workflow.
-- Use request/response DTOs instead of exposing persistence models directly.
-- Add model validation with clear `400 Bad Request` responses.
-- Move user authentication to a persistent database or external identity provider.
-- Store passwords using a modern password-hashing algorithm; never store plaintext passwords.
-- Protect sensitive endpoints with `[Authorize]` where appropriate.
-- Add automated unit and integration tests.
-- Add CI checks for build, test, formatting, and security scanning.
-- Pin compatible package versions and keep the .NET/EF Core dependency chain aligned.
-
-## Error Handling
-
-The current controllers use standard HTTP responses such as:
-
-- `200 OK` for successful reads
-- `201 Created` when a product is created
-- `204 No Content` for successful updates/deletes
-- `401 Unauthorized` for invalid authentication
-- `404 Not Found` when a requested product does not exist
-
-A production-ready API should also standardize validation errors and unexpected exceptions using a consistent error response format such as `ProblemDetails`.
+The Bruno collection has complete, working examples of every endpoint, including a full journey from Bangkok to Laem Chabang by truck, on to Tokyo by vessel and then to the customer.
 
 ## Testing
 
-The repository includes `MyFirstApi.http`, which can be used to manually exercise API endpoints from supported IDEs.
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (209 requests). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
-For a production-grade development workflow, add automated tests for:
+1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
+2. Run **01 Auth / Login**. It stores the JWT for all other requests.
+3. Or run the whole collection with the **Runner**.
+   - Requests are chained through variables.
+   - Codes include a per-run id, so the collection can be re-run against the same database.
 
-- Authentication behavior
-- Product CRUD operations
-- Validation rules
-- Service-layer behavior
-- Database integration
-- Authorization behavior
+There is no automated unit or integration test project yet.
 
-## Security Considerations
+## Performance and maintenance
 
-Before exposing this API to the internet or deploying it to production:
+`TrackingEvents` grows the fastest: one row per item per scan or movement. The design keeps everyday screens fast as it grows:
 
-1. Remove all hardcoded secrets from source code and configuration files.
-2. Rotate any credentials or JWT keys that may already have been committed to a public repository, and change the seeded `admin` password from `Scripts/003_users_seed_admin.sql` immediately.
-3. Use HTTPS in every non-local environment.
-4. Use strong, randomly generated JWT signing keys and protect them through a secrets manager.
-5. Review the `RolePermissions` table and the permission requirements on each endpoint (see the Authorization table above) before adding new controllers, actions, or roles.
-6. Add rate limiting, structured logging, monitoring, and centralized exception handling.
-7. Keep all framework and authentication dependencies patched and supported.
+- **Current state lives on the item**, so the busiest screens never read history.
+- **Monthly partitions** keep indexes small and let date-range queries skip whole months. Old months can later be archived in one step.
+- **Partitions are created ahead.** `PartitionMaintenanceService` creates them 3 months ahead at startup and daily.
+- **Cursor paging** keeps deep pages as fast as the first.
+- **`pg_trgm` indexes** serve substring searches, and **every foreign key is indexed**.
 
-## Contributing
+Measured with 3M events, 200k items and 50k shipments (`Scripts/dev/`):
 
-Contributions are welcome.
+| Case | Before | After |
+|---|---|---|
+| Latest events, first page | 236 ms | 4.7 ms |
+| Item substring search | 150 ms | 3.8 ms |
+| Shipment search by B/L | 142 ms | 24 ms |
+| Deep page (row 50,000) | 65 ms | 5 ms |
+| Scan 100 tags (write) | 25 ms | 25 ms |
 
-A typical workflow is:
+`Scripts/maintenance/README.md` has the preventive-maintenance schedule (daily, weekly, monthly and quarterly) and performance targets. The tools:
 
 ```bash
-git checkout -b feature/<short-description>
-# make changes
-git add .
-git commit -m "feat: describe the change"
-git push origin feature/<short-description>
+docker exec -i postgres-server psql -U postgres -d myfirstapi_db < Scripts/maintenance/health_check.sql
 ```
 
-Then open a pull request with:
+The health check reports table growth, partitions, bloat, unused indexes, slow queries, unindexed foreign keys and undocumented columns.
 
-- A clear summary of the change
-- Testing performed
-- Any configuration or migration steps
-- Security considerations when relevant
+## Security considerations
 
-## Commit Convention
+Before deploying beyond local development:
 
-A Conventional Commits-style format is recommended:
-
-```text
-feat: add product filtering
-fix: handle missing product correctly
-docs: improve API documentation
-refactor: simplify product service
-chore: update dependencies
-test: add product service tests
-```
+1. **Move secrets out of `appsettings.json`.** The DB password and JWT key there are development values and are public in this repository's history, so **generate a new JWT key**.
+2. **Change the seeded `admin` password.**
+3. **Apply per-endpoint permissions** to the Thing-Tag endpoints (planned) and review the `RolePermissions` table.
+4. **Set `Cors:AllowedOrigins`** to the real frontend origin only, use HTTPS everywhere, and add rate limiting and monitoring.
 
 ## Roadmap
 
-Potential improvements include:
+- [x] Database-backed authentication, BCrypt hashing, permission-based authorization
+- [x] DTOs, validation and centralized error handling
+- [x] Tagged items, master data, tracking events with void/correction and reason codes
+- [x] Containers / consolidation and multimodal shipments with customs
+- [x] Partitioning, cursor paging, search indexes and maintenance tooling
+- [x] API versioning (`/api/v1`), coded bilingual error catalog, configurable CORS, Docker Compose stack
+- [ ] Public tracking page API (no login, by tracking number)
+- [ ] Proof of delivery (photo, signature) and document attachments
+- [ ] Dashboards / reports and notifications (email, webhook)
+- [ ] Audit log
+- [ ] Per-endpoint permissions for Thing-Tag features, user management, refresh tokens
+- [ ] Concurrency control and idempotent / offline scanning
+- [ ] Automated tests, CI/CD, health checks
 
-- [x] Real database-backed authentication
-- [x] Password hashing and account management
-- [x] Database-driven, permission-based authorization
-- [ ] Admin UI/endpoints for managing roles and permissions
-- [ ] Self-service password change / reset
-- [ ] DTOs and input validation
-- [ ] EF Core migrations
-- [ ] Global exception handling with `ProblemDetails`
-- [ ] Automated unit and integration tests
-- [ ] CI/CD with GitHub Actions
-- [ ] Containerization with Docker
-- [ ] Production observability and health checks
-- [ ] API versioning
+## Contributing
+
+```bash
+git checkout -b feature/<short-description>
+# make changes, update bruno/ tests, README.md and CLAUDE.md
+git commit -m "feat : describe the change"
+git push origin feature/<short-description>
+```
+
+Then open a pull request with a summary, the testing you did, and any database scripts to apply. Commit messages use a Conventional Commits-style `type : message`, where the type is `feat`, `fix`, `perf`, `docs`, `refactor` or `chore`.
 
 ## License
 
-No license is currently specified for this repository.
-
-If this project is intended for public reuse, add an explicit open-source license (for example MIT, Apache-2.0, or another license that matches your requirements).
+No license is currently specified. If this project is intended for public reuse, add an explicit open-source license (for example MIT or Apache-2.0).
 
 ## Author
 
-**mcfr2008**
-
-GitHub: https://github.com/mcfr2008
-
----
-
-Built with ASP.NET Core and C#.
+**mcfr2008** · https://github.com/mcfr2008

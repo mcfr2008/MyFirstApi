@@ -165,7 +165,7 @@ public class TrackingEventService : ITrackingEventService
         }
         catch (Exception ex) when (ex is FormatException or IndexOutOfRangeException or ArgumentOutOfRangeException or OverflowException)
         {
-            throw new BusinessRuleException("Invalid cursor. Use nextCursor from the previous page.");
+            throw Errors.InvalidCursor();
         }
     }
 
@@ -264,17 +264,15 @@ public class TrackingEventService : ITrackingEventService
 
         if (trackingEvent.IsVoided)
         {
-            throw new ConflictException("Event is already voided.");
+            throw Errors.EventAlreadyVoided();
         }
         if (trackingEvent.IsSystemManaged)
         {
-            throw new ConflictException(
-                "This event was recorded by a shipment or container operation; undo it there " +
-                "(e.g. unload the container) instead of voiding it.");
+            throw Errors.EventSystemManaged();
         }
         if (trackingEvent.TrackedItem.IsArchived)
         {
-            throw new BusinessRuleException("Events of archived items can't be changed. Restore the item first.");
+            throw Errors.EventItemArchived();
         }
         return trackingEvent;
     }

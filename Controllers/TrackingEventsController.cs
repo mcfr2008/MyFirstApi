@@ -8,7 +8,7 @@ namespace MyFirstApi.Controllers;
 // replaced via /correct), keeping the original for audit.
 // Permission policies are intentionally not applied yet.
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class TrackingEventsController : ControllerBase
 {
     private readonly ITrackingEventService _trackingEventService;

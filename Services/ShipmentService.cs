@@ -162,7 +162,7 @@ public class ShipmentService : IShipmentService
             : QueryHelpers.NormalizeCode(request.TrackingNumber);
         if (await _context.Shipments.AnyAsync(s => s.TrackingNumber == trackingNumber))
         {
-            throw new ConflictException($"Tracking number already exists: {trackingNumber}");
+            throw Errors.TrackingNumberExists(trackingNumber);
         }
 
         var now = DateTime.UtcNow;
@@ -182,7 +182,7 @@ public class ShipmentService : IShipmentService
             await AddItemsToShipmentAsync(shipment, request.TrackedItemIds, request.TagCodes, request.ContainerIds);
         }
 
-        await _context.SaveChangesOrConflictAsync($"Tracking number already exists: {trackingNumber}");
+        await _context.SaveChangesOrConflictAsync(Errors.TrackingNumberExists(trackingNumber));
         return (await GetShipmentByIdAsync(shipment.Id))!;
     }
 
@@ -191,7 +191,7 @@ public class ShipmentService : IShipmentService
     {
         var shipment = await ShipmentsWithDetails().FirstOrDefaultAsync(s => s.Id == id);
         if (shipment == null) return null;
-        EnsureStatus(shipment, "edited", ShipmentStatus.Planned);
+        EnsureStatus(shipment, "edit", ShipmentStatus.Planned);
 
         await ApplyFieldsAsync(shipment, request);
         shipment.UpdatedAt = DateTime.UtcNow;
@@ -206,15 +206,15 @@ public class ShipmentService : IShipmentService
         var leg = shipment?.Legs.FirstOrDefault(l => l.Id == legId);
         if (shipment == null || leg == null) return null;
 
-        EnsureStatus(shipment, "edited", ShipmentStatus.Planned, ShipmentStatus.InTransit);
+        EnsureStatus(shipment, "editLeg", ShipmentStatus.Planned, ShipmentStatus.InTransit);
         if (leg.ActualDeparture.HasValue)
         {
-            throw new ConflictException($"Leg {leg.Sequence} has already departed and can't be changed.");
+            throw Errors.LegAlreadyDeparted(leg.Sequence);
         }
 
         var (carrierId, documentType) = await ValidateTransportAsync(
             leg.Mode, request.CarrierId, request.VehicleId, leg.CarrierId, leg.VehicleId,
-            request.DocumentType, request.DocumentNumber, $"Leg {leg.Sequence}: ");
+            request.DocumentType, request.DocumentNumber, ErrorScope.Leg(leg.Sequence));
 
         leg.CarrierId = carrierId;
         leg.VehicleId = request.VehicleId;
@@ -236,7 +236,7 @@ public class ShipmentService : IShipmentService
     {
         var shipment = await _context.Shipments.FindAsync(id);
         if (shipment == null) return null;
-        EnsureStatus(shipment, "given new items", ShipmentStatus.Planned);
+        EnsureStatus(shipment, "addItems", ShipmentStatus.Planned);
 
         await AddItemsToShipmentAsync(shipment, request.TrackedItemIds, request.TagCodes, request.ContainerIds);
         shipment.UpdatedAt = DateTime.UtcNow;
@@ -249,12 +249,12 @@ public class ShipmentService : IShipmentService
     {
         var shipment = await _context.Shipments.FindAsync(id);
         if (shipment == null) return null;
-        EnsureStatus(shipment, "changed", ShipmentStatus.Planned);
+        EnsureStatus(shipment, "removeItem", ShipmentStatus.Planned);
 
         var link = await _context.ShipmentItems.FindAsync(id, trackedItemId);
         if (link == null)
         {
-            throw new BusinessRuleException($"Item {trackedItemId} is not in shipment {shipment.TrackingNumber}.");
+            throw Errors.ItemNotInShipment(trackedItemId, shipment.TrackingNumber);
         }
 
         _context.ShipmentItems.Remove(link);
@@ -272,28 +272,28 @@ public class ShipmentService : IShipmentService
         var leg = shipment?.Legs.FirstOrDefault(l => l.Id == legId);
         if (shipment == null || leg == null) return null;
 
-        EnsureStatus(shipment, "dispatched", ShipmentStatus.Planned, ShipmentStatus.InTransit);
+        EnsureStatus(shipment, "departLeg", ShipmentStatus.Planned, ShipmentStatus.InTransit);
         if (leg.ActualDeparture.HasValue)
         {
-            throw new ConflictException($"Leg {leg.Sequence} has already departed.");
+            throw Errors.LegAlreadyDeparted(leg.Sequence);
         }
         if (shipment.CustomsStatus == CustomsStatus.Hold)
         {
-            throw new ConflictException("Shipment is held by customs.");
+            throw Errors.ShipmentOnCustomsHold();
         }
 
         var previous = shipment.Legs.Where(l => l.Sequence < leg.Sequence).OrderBy(l => l.Sequence).ToList();
         var notArrived = previous.FirstOrDefault(l => !l.ActualArrival.HasValue);
         if (notArrived != null)
         {
-            throw new BusinessRuleException($"Leg {notArrived.Sequence} must arrive before leg {leg.Sequence} departs.");
+            throw Errors.PreviousLegNotArrived(notArrived.Sequence, leg.Sequence);
         }
 
         var departedAt = request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow;
         var previousArrival = previous.LastOrDefault()?.ActualArrival;
         if (previousArrival.HasValue && departedAt < previousArrival.Value)
         {
-            throw new BusinessRuleException("Departure can't be earlier than the previous leg's arrival.");
+            throw Errors.DepartureBeforePreviousArrival();
         }
 
         leg.ActualDeparture = departedAt;
@@ -313,20 +313,20 @@ public class ShipmentService : IShipmentService
         var leg = shipment?.Legs.FirstOrDefault(l => l.Id == legId);
         if (shipment == null || leg == null) return null;
 
-        EnsureStatus(shipment, "updated", ShipmentStatus.InTransit);
+        EnsureStatus(shipment, "arriveLeg", ShipmentStatus.InTransit);
         if (!leg.ActualDeparture.HasValue)
         {
-            throw new BusinessRuleException($"Leg {leg.Sequence} hasn't departed yet.");
+            throw Errors.LegNotDeparted(leg.Sequence);
         }
         if (leg.ActualArrival.HasValue)
         {
-            throw new ConflictException($"Leg {leg.Sequence} has already arrived.");
+            throw Errors.LegAlreadyArrived(leg.Sequence);
         }
 
         var arrivedAt = request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow;
         if (arrivedAt < leg.ActualDeparture.Value)
         {
-            throw new BusinessRuleException("Arrival can't be earlier than departure.");
+            throw Errors.ArrivalBeforeDeparture();
         }
 
         leg.ActualArrival = arrivedAt;
@@ -343,7 +343,7 @@ public class ShipmentService : IShipmentService
     {
         var shipment = await ShipmentsWithDetails().FirstOrDefaultAsync(s => s.Id == id);
         if (shipment == null) return null;
-        EnsureStatus(shipment, "updated", ShipmentStatus.Planned, ShipmentStatus.InTransit);
+        EnsureStatus(shipment, "updateCustoms", ShipmentStatus.Planned, ShipmentStatus.InTransit);
 
         var status = request.Status!.Value;
         shipment.CustomsStatus = status;
@@ -374,7 +374,7 @@ public class ShipmentService : IShipmentService
         if (shipment == null) return null;
         if (shipment.Status == ShipmentStatus.Cancelled)
         {
-            throw new ConflictException("Shipment is cancelled.");
+            throw Errors.ShipmentCancelled();
         }
 
         var count = await RecordForShipmentAsync(shipment, request.EventTypeCode, request.LocationId,
@@ -389,16 +389,16 @@ public class ShipmentService : IShipmentService
     {
         var shipment = await ShipmentsWithDetails().FirstOrDefaultAsync(s => s.Id == id);
         if (shipment == null) return null;
-        EnsureStatus(shipment, "delivered", ShipmentStatus.Planned, ShipmentStatus.InTransit);
+        EnsureStatus(shipment, "deliver", ShipmentStatus.Planned, ShipmentStatus.InTransit);
 
         var notArrived = shipment.Legs.OrderBy(l => l.Sequence).FirstOrDefault(l => !l.ActualArrival.HasValue);
         if (notArrived != null)
         {
-            throw new BusinessRuleException($"Leg {notArrived.Sequence} hasn't arrived yet.");
+            throw Errors.LegNotArrived(notArrived.Sequence);
         }
         if (shipment.CustomsStatus is CustomsStatus.Pending or CustomsStatus.InProgress or CustomsStatus.Hold)
         {
-            throw new BusinessRuleException($"Customs is not cleared (status: {shipment.CustomsStatus}).");
+            throw Errors.CustomsNotCleared(shipment.CustomsStatus);
         }
 
         var deliveredAt = request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow;
@@ -421,7 +421,7 @@ public class ShipmentService : IShipmentService
     {
         var shipment = await _context.Shipments.FindAsync(id);
         if (shipment == null) return null;
-        EnsureStatus(shipment, "cancelled", ShipmentStatus.Planned);
+        EnsureStatus(shipment, "cancel", ShipmentStatus.Planned);
 
         shipment.Status = ShipmentStatus.Cancelled;
         shipment.UpdatedAt = DateTime.UtcNow;
@@ -454,8 +454,7 @@ public class ShipmentService : IShipmentService
     {
         if (!allowed.Contains(shipment.Status))
         {
-            throw new ConflictException(
-                $"A {shipment.Status} shipment can't be {action} (allowed when: {string.Join(", ", allowed)}).");
+            throw Errors.ShipmentStatusNotAllowed(action, shipment.Status, allowed.Cast<object>());
         }
     }
 
@@ -478,7 +477,7 @@ public class ShipmentService : IShipmentService
             .ToListAsync();
         if (items.Count == 0)
         {
-            throw new BusinessRuleException($"Shipment {shipment.TrackingNumber} has no items.");
+            throw Errors.ShipmentHasNoItems(shipment.TrackingNumber);
         }
 
         var eventType = await _recorder.GetEventTypeAsync(eventTypeCode);
@@ -503,7 +502,7 @@ public class ShipmentService : IShipmentService
             var missing = distinct.Except(found).ToList();
             if (missing.Count > 0)
             {
-                throw new BusinessRuleException($"Containers not found: {string.Join(", ", missing)}");
+                throw Errors.ContainersNotFound(missing);
             }
             items.AddRange(await _recorder.FindItemsInContainersAsync(distinct));
         }
@@ -511,7 +510,7 @@ public class ShipmentService : IShipmentService
         items = items.DistinctBy(i => i.Id).ToList();
         if (items.Count == 0)
         {
-            throw new BusinessRuleException("No items to add (the containers are empty).");
+            throw Errors.NoItemsToAdd();
         }
 
         var alreadyIn = shipment.Id == 0
@@ -528,7 +527,7 @@ public class ShipmentService : IShipmentService
             .ToListAsync();
         if (busy.Count > 0)
         {
-            throw new ConflictException($"Items are already in another open shipment: {string.Join(", ", busy)}");
+            throw Errors.ItemsInOpenShipment(busy);
         }
 
         var now = DateTime.UtcNow;
@@ -542,13 +541,13 @@ public class ShipmentService : IShipmentService
     {
         var isNew = shipment.Id == 0;
         await ReferenceResolver.ResolveRequiredAsync(_context.Parties.AsNoTracking(), fields.SenderPartyId!.Value,
-            isNew ? null : shipment.SenderPartyId, "Sender");
+            isNew ? null : shipment.SenderPartyId, "senderPartyId");
         await ReferenceResolver.ResolveRequiredAsync(_context.Parties.AsNoTracking(), fields.ReceiverPartyId!.Value,
-            isNew ? null : shipment.ReceiverPartyId, "Receiver");
+            isNew ? null : shipment.ReceiverPartyId, "receiverPartyId");
         var origin = await ReferenceResolver.ResolveRequiredAsync(_context.Locations.AsNoTracking(), fields.OriginLocationId!.Value,
-            isNew ? null : shipment.OriginLocationId, "Origin");
+            isNew ? null : shipment.OriginLocationId, "originLocationId");
         var destination = await ReferenceResolver.ResolveRequiredAsync(_context.Locations.AsNoTracking(), fields.DestinationLocationId!.Value,
-            isNew ? null : shipment.DestinationLocationId, "Destination");
+            isNew ? null : shipment.DestinationLocationId, "destinationLocationId");
 
         await ApplyLegsAsync(shipment, fields.Legs, origin.Id, destination.Id);
 
@@ -570,35 +569,33 @@ public class ShipmentService : IShipmentService
         for (var index = 0; index < requests.Count; index++)
         {
             var request = requests[index];
-            var prefix = $"Leg {index + 1}: ";
+            var scope = ErrorScope.Leg(index + 1);
 
             var expectedOrigin = index == 0 ? originId : requests[index - 1].DestinationLocationId!.Value;
             if (request.OriginLocationId != expectedOrigin)
             {
-                throw new BusinessRuleException(index == 0
-                    ? $"{prefix}must start at the shipment origin."
-                    : $"{prefix}must start where leg {index} ends.");
+                throw (index == 0 ? Errors.LegMustStartAtOrigin() : Errors.LegNotContinuous(index)).In(scope);
             }
             if (index == requests.Count - 1 && request.DestinationLocationId != destinationId)
             {
-                throw new BusinessRuleException($"{prefix}the last leg must end at the shipment destination.");
+                throw Errors.LastLegMustEndAtDestination().In(scope);
             }
             if (index > 0 && request.PlannedDeparture.HasValue && requests[index - 1].PlannedArrival.HasValue &&
                 request.PlannedDeparture < requests[index - 1].PlannedArrival)
             {
-                throw new BusinessRuleException($"{prefix}PlannedDeparture is before leg {index}'s PlannedArrival.");
+                throw Errors.LegScheduleOverlap(index).In(scope);
             }
 
             var existing = shipment.Legs.FirstOrDefault(l => l.Sequence == index + 1);
             await ReferenceResolver.ResolveRequiredAsync(_context.Locations.AsNoTracking(),
-                request.OriginLocationId!.Value, existing?.OriginLocationId, "Location", prefix);
+                request.OriginLocationId!.Value, existing?.OriginLocationId, "originLocationId", scope);
             await ReferenceResolver.ResolveRequiredAsync(_context.Locations.AsNoTracking(),
-                request.DestinationLocationId!.Value, existing?.DestinationLocationId, "Location", prefix);
+                request.DestinationLocationId!.Value, existing?.DestinationLocationId, "destinationLocationId", scope);
 
             var mode = request.Mode!.Value;
             var (carrierId, documentType) = await ValidateTransportAsync(
                 mode, request.CarrierId, request.VehicleId, existing?.CarrierId, existing?.VehicleId,
-                request.DocumentType, request.DocumentNumber, prefix);
+                request.DocumentType, request.DocumentNumber, scope);
 
             var leg = existing ?? new ShipmentLeg { Sequence = index + 1 };
             leg.Mode = mode;
@@ -629,28 +626,28 @@ public class ShipmentService : IShipmentService
     // (defaulted from the vehicle) and the document type (defaulted from the mode).
     private async Task<(int? CarrierId, TransportDocumentType? DocumentType)> ValidateTransportAsync(
         TransportMode mode, int? carrierId, int? vehicleId, int? currentCarrierId, int? currentVehicleId,
-        TransportDocumentType? documentType, string? documentNumber, string prefix)
+        TransportDocumentType? documentType, string? documentNumber, ErrorScope scope)
     {
         var vehicle = await ReferenceResolver.ResolveAsync(
-            _context.Vehicles.AsNoTracking(), vehicleId, currentVehicleId, "Vehicle", prefix);
+            _context.Vehicles.AsNoTracking(), vehicleId, currentVehicleId, "vehicleId", scope);
         if (vehicle != null)
         {
             if (!SameFamily(vehicle.Mode, mode))
             {
-                throw new BusinessRuleException($"{prefix}vehicle {vehicle.Code} is a {vehicle.Mode} vehicle, not {mode}.");
+                throw Errors.VehicleModeMismatch(vehicle.Code, vehicle.Mode, mode).In(scope);
             }
             if (carrierId.HasValue && vehicle.CarrierId.HasValue && carrierId != vehicle.CarrierId)
             {
-                throw new BusinessRuleException($"{prefix}vehicle {vehicle.Code} belongs to a different carrier.");
+                throw Errors.VehicleCarrierMismatch(vehicle.Code).In(scope);
             }
             carrierId ??= vehicle.CarrierId;
         }
 
         var carrier = await ReferenceResolver.ResolveAsync(
-            _context.Carriers.AsNoTracking(), carrierId, currentCarrierId, "Carrier", prefix);
+            _context.Carriers.AsNoTracking(), carrierId, currentCarrierId, "carrierId", scope);
         if (carrier != null && !carrier.Modes.Any(m => SameFamily(Enum.Parse<TransportMode>(m), mode)))
         {
-            throw new BusinessRuleException($"{prefix}carrier {carrier.Code} does not operate {mode} transport.");
+            throw Errors.CarrierModeNotSupported(carrier.Code, mode).In(scope);
         }
 
         if (documentType.HasValue)
@@ -660,7 +657,7 @@ public class ShipmentService : IShipmentService
                              documentType is TransportDocumentType.RoadConsignmentNote or TransportDocumentType.CourierWaybill;
             if (documentType != expected && !roadFamily)
             {
-                throw new BusinessRuleException($"{prefix}{documentType} is not a {mode} document (expected {expected}).");
+                throw Errors.DocumentTypeMismatch(documentType, mode, expected).In(scope);
             }
         }
         else if (!string.IsNullOrWhiteSpace(documentNumber))

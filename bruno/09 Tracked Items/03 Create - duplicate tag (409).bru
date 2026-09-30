@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/api/TrackedItems
+  url: {{baseUrl}}/api/v1/TrackedItems
   body: json
   auth: inherit
 }
@@ -35,4 +35,5 @@ body:json {
 
 assert {
   res.status: eq 409
+  res.body.code: eq "TAG_CODE_EXISTS"
 }

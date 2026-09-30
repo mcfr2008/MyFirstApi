@@ -106,7 +106,7 @@ public abstract class MasterDataService<TEntity, TRequest, TResponse, TQuery>
         Apply(entity, request);
 
         Set.Add(entity);
-        await Context.SaveChangesOrConflictAsync(CodeExistsMessage(code));
+        await Context.SaveChangesOrConflictAsync(Errors.CodeAlreadyExists(EntityName, code));
         OnChanged();
 
         return (await GetByIdAsync(entity.Id))!;
@@ -128,7 +128,7 @@ public abstract class MasterDataService<TEntity, TRequest, TResponse, TQuery>
         Apply(entity, request);
         entity.UpdatedAt = DateTime.UtcNow;
 
-        await Context.SaveChangesOrConflictAsync(CodeExistsMessage(code));
+        await Context.SaveChangesOrConflictAsync(Errors.CodeAlreadyExists(EntityName, code));
         OnChanged();
         return await GetByIdAsync(id);
     }
@@ -153,9 +153,7 @@ public abstract class MasterDataService<TEntity, TRequest, TResponse, TQuery>
     {
         if (await Set.AnyAsync(e => e.Code == code))
         {
-            throw new ConflictException(CodeExistsMessage(code));
+            throw Errors.CodeAlreadyExists(EntityName, code);
         }
     }
-
-    private string CodeExistsMessage(string code) => $"{EntityName} code already exists: {code}";
 }

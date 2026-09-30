@@ -8,7 +8,7 @@ namespace MyFirstApi.Controllers;
 // not through this controller. Permission policies are intentionally not
 // applied yet; for now every endpoint only requires a logged-in user.
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class TrackedItemsController : ControllerBase
 {
     private readonly ITrackedItemService _trackedItemService;

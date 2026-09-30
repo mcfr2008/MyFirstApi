@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{baseUrl}}/api/TrackedItems
+  url: {{baseUrl}}/api/v1/TrackedItems
   body: json
   auth: inherit
 }
@@ -19,6 +19,7 @@ body:json {
 
 assert {
   res.status: eq 400
+  res.body.code: eq "ITEM_MISSING_REQUIRED_ATTRIBUTES"
 }
 
 docs {

@@ -26,11 +26,11 @@ public class TrackingEventRecorder : ITrackingEventRecorder
 
         if (eventType == null)
         {
-            throw new BusinessRuleException($"Event type {normalized} is not configured (see /api/EventTypes).");
+            throw Errors.EventTypeNotConfigured(normalized);
         }
         if (!eventType.IsActive)
         {
-            throw new BusinessRuleException($"Event type {normalized} is inactive.");
+            throw Errors.EventTypeInactive(normalized);
         }
         return eventType;
     }
@@ -49,7 +49,7 @@ public class TrackingEventRecorder : ITrackingEventRecorder
             .ToList();
         if (missing.Count > 0)
         {
-            throw new BusinessRuleException($"Tracked items not found: {string.Join(", ", missing)}");
+            throw Errors.ItemsNotFound(missing);
         }
 
         EnsureNotArchived(items);
@@ -96,11 +96,11 @@ public class TrackingEventRecorder : ITrackingEventRecorder
     {
         if (items.Count == 0)
         {
-            throw new BusinessRuleException("There are no items to record the event for.");
+            throw Errors.NoItemsForEvent();
         }
         EnsureNotArchived(items);
 
-        await ReferenceResolver.ResolveAsync(_context.Locations.AsNoTracking(), context.LocationId, null, "Location");
+        await ReferenceResolver.ResolveAsync(_context.Locations.AsNoTracking(), context.LocationId, null, "locationId");
         var reason = await ResolveReasonAsync(eventType, context);
 
         var now = DateTime.UtcNow;
@@ -172,8 +172,7 @@ public class TrackingEventRecorder : ITrackingEventRecorder
         {
             if (eventType.RequiresReason)
             {
-                throw new BusinessRuleException(
-                    $"Event type {eventType.Code} requires a reasonCode (see /api/ReasonCodes?eventTypeCode={eventType.Code}).");
+                throw Errors.ReasonRequired(eventType.Code);
             }
             return null;
         }
@@ -182,20 +181,19 @@ public class TrackingEventRecorder : ITrackingEventRecorder
         var reason = await _cache.FindReasonCodeAsync(code);
         if (reason == null)
         {
-            throw new BusinessRuleException($"Reason code {code} does not exist.");
+            throw Errors.ReasonNotFound(code);
         }
         if (!reason.IsActive)
         {
-            throw new BusinessRuleException($"Reason code {code} is inactive.");
+            throw Errors.ReasonInactive(code);
         }
         if (reason.EventTypeCodes.Count > 0 && !reason.EventTypeCodes.Contains(eventType.Code))
         {
-            throw new BusinessRuleException(
-                $"Reason code {code} can't be used with {eventType.Code} (allowed: {string.Join(", ", reason.EventTypeCodes)}).");
+            throw Errors.ReasonNotAllowed(code, eventType.Code, reason.EventTypeCodes);
         }
         if (reason.RequiresNote && string.IsNullOrWhiteSpace(context.Note))
         {
-            throw new BusinessRuleException($"Reason code {code} requires a note explaining what happened.");
+            throw Errors.ReasonNoteRequired(code);
         }
         return reason;
     }
@@ -223,7 +221,7 @@ public class TrackingEventRecorder : ITrackingEventRecorder
         var archived = items.Where(i => i.IsArchived).Select(i => i.TagCode).ToList();
         if (archived.Count > 0)
         {
-            throw new BusinessRuleException($"Archived items can't be tracked: {string.Join(", ", archived)}");
+            throw Errors.ItemsArchived(archived);
         }
     }
 }

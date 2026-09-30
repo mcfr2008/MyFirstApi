@@ -4,7 +4,7 @@ using MyFirstApi.Interfaces;
 
 namespace MyFirstApi.Controllers;
 
-[Route("api/[controller]")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class CarriersController : MasterDataController<CarrierRequest, CarrierResponse, CarrierQuery>
 {
     public CarriersController(ICarrierService service) : base(service)

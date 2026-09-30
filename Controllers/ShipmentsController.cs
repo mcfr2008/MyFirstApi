@@ -7,7 +7,7 @@ namespace MyFirstApi.Controllers;
 // Lifecycle: Planned -> (legs depart/arrive) InTransit -> Delivered, or Planned -> Cancelled.
 // Permission policies are intentionally not applied yet.
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class ShipmentsController : ControllerBase
 {
     private readonly IShipmentService _shipmentService;

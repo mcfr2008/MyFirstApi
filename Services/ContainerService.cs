@@ -73,15 +73,14 @@ public class ContainerService
         var code = QueryHelpers.NormalizeCode(request.Code);
         if (Container.IsIsoContainer(request.Type!.Value) && !Iso6346.IsValid(code))
         {
-            throw new BusinessRuleException(
-                $"{code} is not a valid ISO 6346 container number (e.g. CSQU3054383: owner code, U, 6 digits, check digit).");
+            throw Errors.InvalidIso6346(code);
         }
 
         await ReferenceResolver.ResolveAsync(
-            Context.Locations.AsNoTracking(), request.CurrentLocationId, entity.CurrentLocationId, "Location");
+            Context.Locations.AsNoTracking(), request.CurrentLocationId, entity.CurrentLocationId, "currentLocationId");
 
         var parent = await ReferenceResolver.ResolveAsync(
-            Context.Containers.AsNoTracking(), request.ParentContainerId, entity.ParentContainerId, "Parent container");
+            Context.Containers.AsNoTracking(), request.ParentContainerId, entity.ParentContainerId, "parentContainerId");
         if (parent != null && entity.Id != 0)
         {
             await EnsureNoCycleAsync(entity.Id, parent.Id);
@@ -139,14 +138,14 @@ public class ContainerService
         if (container == null) return null;
         if (!container.IsActive)
         {
-            throw new BusinessRuleException($"Container {container.Code} is inactive.");
+            throw Errors.ContainerInactive(container.Code);
         }
 
         foreach (var child in await FindChildContainersAsync(request.ChildContainerIds))
         {
             if (child.Id == id)
             {
-                throw new BusinessRuleException("A container can't be loaded into itself.");
+                throw Errors.ContainerIntoItself();
             }
             await EnsureNoCycleAsync(child.Id, id);
             child.ParentContainerId = id;
@@ -164,8 +163,7 @@ public class ContainerService
                 .ToList();
             if (alreadyElsewhere.Count > 0)
             {
-                throw new ConflictException(
-                    $"Items are already in another container (unload them first): {string.Join(", ", alreadyElsewhere)}");
+                throw Errors.ItemsInOtherContainer(alreadyElsewhere);
             }
 
             foreach (var item in items)
@@ -209,13 +207,13 @@ public class ContainerService
                 .ToList();
             if (notInside.Count > 0)
             {
-                throw new BusinessRuleException($"Not in container {container.Code}: {string.Join(", ", notInside)}");
+                throw Errors.NotInContainer(container.Code, notInside);
             }
         }
 
         if (items.Count == 0 && children.Count == 0)
         {
-            throw new BusinessRuleException($"Container {container.Code} is empty.");
+            throw Errors.ContainerEmpty(container.Code);
         }
 
         foreach (var item in items)
@@ -250,7 +248,7 @@ public class ContainerService
         var items = await _recorder.FindItemsInContainersAsync([id]);
         if (items.Count == 0)
         {
-            throw new BusinessRuleException($"Container {container.Code} is empty.");
+            throw Errors.ContainerEmpty(container.Code);
         }
 
         var eventType = await _recorder.GetEventTypeAsync(request.EventTypeCode);
@@ -289,7 +287,7 @@ public class ContainerService
         var missing = distinct.Except(children.Select(c => c.Id)).ToList();
         if (missing.Count > 0)
         {
-            throw new BusinessRuleException($"Containers not found: {string.Join(", ", missing)}");
+            throw Errors.ContainersNotFound(missing);
         }
         return children;
     }
@@ -301,7 +299,7 @@ public class ContainerService
         var descendants = await _recorder.GetContainerTreeIdsAsync(containerId);
         if (descendants.Contains(newParentId))
         {
-            throw new BusinessRuleException("A container can't be placed inside itself or one of its own nested containers.");
+            throw Errors.ContainerCycle();
         }
     }
 }

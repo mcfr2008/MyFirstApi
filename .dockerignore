@@ -1,0 +1,14 @@
+bin/
+obj/
+.git/
+.vs/
+.vscode/
+.idea/
+.local/
+Library/
+bruno/
+Scripts/
+*.md
+.env
+docker-compose.yml
+Dockerfile
