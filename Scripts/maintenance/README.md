@@ -23,7 +23,7 @@ Commands assume the Docker container `postgres-server`:
 | When | Task | How |
 |---|---|---|
 | Daily | Check that the backup succeeded; check API logs for `PartitionMaintenanceService` warnings/errors | backup tool, logs |
-| Weekly | Run the health check; watch table growth, dead rows (`dead_pct` > 20% on a big table means autovacuum isn't keeping up), slow queries, and foreign keys without an index (section 6 should be empty) | `health_check.sql` |
+| Weekly | Run the health check; watch table growth, dead rows (`dead_pct` > 20% on a big table means autovacuum isn't keeping up), slow queries, foreign keys without an index (section 6 should be empty), and undocumented columns (section 7 should be empty) | `health_check.sql` |
 | Monthly | Confirm future partitions exist (`three_months_ahead_ok` = t) and the default partition is empty; `REINDEX INDEX CONCURRENTLY` any index that has grown far beyond its table; **test-restore a backup** | `health_check.sql`, `create_partitions.sql` |
 | Quarterly | Load test on a copy: `Scripts/dev/load_test_seed.sql` + `python3 Scripts/dev/benchmark.py`; compare with the targets below; review data retention | `Scripts/dev/` |
 

@@ -108,6 +108,7 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
 `Scripts/` holds numbered, idempotent SQL files (`CREATE TABLE IF NOT EXISTS`, `ON CONFLICT DO NOTHING`), one per feature, schema before seed. When adding a table/column:
 1. Add a new `NNN_*.sql` file (next number) and add an `\ir` line for it in `Scripts/run_all.sql`.
 2. Update the entity in `Models/` and `DbSet`/`OnModelCreating` in `AppDbContext` to match. The two must be kept in sync manually.
+3. Add a `COMMENT ON TABLE` / `COMMENT ON COLUMN` for every new table and column, written as `'English | ภาษาไทย'`. For enum columns, list the allowed values. Put it in the same script or in `Scripts/028_table_column_comments.sql`. `health_check.sql` section 7 lists anything left undocumented.
 
 ### Authorization (database-driven permissions)
 
