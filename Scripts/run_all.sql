@@ -32,3 +32,4 @@
 \ir 026_search_indexes_and_storage.sql
 \ir 027_foreign_key_indexes.sql
 \ir 028_table_column_comments.sql
+\ir 029_proof_of_delivery.sql

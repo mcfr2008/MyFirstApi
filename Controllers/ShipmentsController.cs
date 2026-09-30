@@ -132,6 +132,7 @@ public class ShipmentsController : ControllerBase
         return Ok(result);
     }
 
+    // Only for shipments with requiresSignature = false; otherwise use proof-of-delivery.
     [HttpPost("{id:int}/deliver")]
     public async Task<IActionResult> Deliver(int id, DeliverShipmentRequest request)
     {
@@ -139,6 +140,29 @@ public class ShipmentsController : ControllerBase
         if (shipment == null) return NotFound();
 
         return Ok(shipment);
+    }
+
+    // multipart/form-data: signature (image), photos[] (images), receiverName, receiverRelation,
+    // signedAt, latitude, longitude, locationAccuracyMeters, deviceInfo, note,
+    // refusedItems[i].tagCode / .reasonCode / .note. Delivers the shipment in the same step.
+    [HttpPost("{id:int}/proof-of-delivery")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(32 * 1024 * 1024)]
+    public async Task<IActionResult> CreateProofOfDelivery(int id, [FromForm] ProofOfDeliveryRequest request)
+    {
+        var proof = await _shipmentService.CreateProofOfDeliveryAsync(id, request);
+        if (proof == null) return NotFound();
+
+        return CreatedAtAction(nameof(GetProofOfDelivery), new { id }, proof);
+    }
+
+    [HttpGet("{id:int}/proof-of-delivery")]
+    public async Task<IActionResult> GetProofOfDelivery(int id)
+    {
+        var proof = await _shipmentService.GetProofOfDeliveryAsync(id);
+        if (proof == null) return NotFound();
+
+        return Ok(proof);
     }
 
     [HttpPost("{id:int}/cancel")]

@@ -22,5 +22,9 @@ public interface IShipmentService
     Task<EventsRecordedResponse?> RecordEventAsync(int id, EventDetails request);
     Task<ShipmentResponse?> DeliverAsync(int id, DeliverShipmentRequest request);
 
+    // Receiver signature (+ photos, GPS): stores the evidence and delivers the shipment.
+    Task<ProofOfDeliveryResponse?> CreateProofOfDeliveryAsync(int id, ProofOfDeliveryRequest request);
+    Task<ProofOfDeliveryResponse?> GetProofOfDeliveryAsync(int id);
+
     Task<ShipmentResponse?> CancelAsync(int id);
 }

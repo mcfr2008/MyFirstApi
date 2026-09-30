@@ -51,6 +51,10 @@ services:
       Jwt__Key: ${JWT_KEY:-thingtag-local-development-only-signing-key-change-me}
     ports:
       - "${API_PORT:-5106}:8080"
+    volumes:
+      # Signatures and delivery photos (FileStorage:RootPath = App_Data/files).
+      - files-data:/app/App_Data
 
 volumes:
   db-data:
+  files-data:

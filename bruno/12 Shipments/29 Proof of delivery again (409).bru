@@ -1,0 +1,22 @@
+meta {
+  name: Proof of delivery again (409)
+  type: http
+  seq: 29
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{shipmentId}}/proof-of-delivery
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  signature: @file(fixtures/signature.png)
+  receiverName: Someone else
+  receiverRelation: Other
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "PROOF_OF_DELIVERY_EXISTS"
+}

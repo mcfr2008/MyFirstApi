@@ -26,5 +26,13 @@ CREATE TABLE IF NOT EXISTS "TrackedItems" (
     CONSTRAINT "IX_TrackedItems_TagCode" UNIQUE ("TagCode")
 );
 
-CREATE INDEX IF NOT EXISTS "IX_TrackedItems_Category" ON "TrackedItems" ("Category");
+-- "Category" is replaced by "CategoryId" in 012 (which drops this column), so only
+-- index it while it exists - otherwise re-running all scripts would fail here.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'TrackedItems' AND column_name = 'Category') THEN
+        CREATE INDEX IF NOT EXISTS "IX_TrackedItems_Category" ON "TrackedItems" ("Category");
+    END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS "IX_TrackedItems_Status" ON "TrackedItems" ("Status");

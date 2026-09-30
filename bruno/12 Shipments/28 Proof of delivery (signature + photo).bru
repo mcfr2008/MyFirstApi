@@ -1,0 +1,49 @@
+meta {
+  name: Proof of delivery (signature + photo)
+  type: http
+  seq: 28
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{shipmentId}}/proof-of-delivery
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  signature: @file(fixtures/signature.png)
+  photos: @file(fixtures/delivery-photo.jpg)
+  receiverName: Tanaka Hiroshi
+  receiverRelation: Reception
+  latitude: 35.6432
+  longitude: 139.7486
+  locationAccuracyMeters: 12
+  deviceInfo: Bruno test / driver app
+  note: Signed at reception desk
+  refusedItems[0].tagCode: RFID-{{runId}}-2
+  refusedItems[0].reasonCode: REFUSED
+  refusedItems[0].note: Carton crushed, receiver refused it
+}
+
+assert {
+  res.status: eq 201
+  res.body.receiverName: eq "Tanaka Hiroshi"
+  res.body.deliveredItemCount: eq 2
+  res.body.signature.contentType: eq "image/png"
+  res.body.signature.sha256: isString
+}
+
+script:post-response {
+  bru.setVar("signatureUrl", res.body.signature.url);
+}
+
+tests {
+  test("one photo and one refused item", function () {
+    expect(res.body.photos.length).to.equal(1);
+    expect(res.body.refusedItems[0].reasonCode).to.equal("REFUSED");
+  });
+}
+
+docs {
+  multipart/form-data. Stores the signature and photo, delivers the shipment, records DELIVERED for received items and DELIVERY_FAILED (reason REFUSED) for refused ones.
+}

@@ -148,6 +148,24 @@ public static class Errors
     public static readonly ErrorDefinition DocumentTypeMismatchDef = new("DOCUMENT_TYPE_MISMATCH", BadRequest,
         "{documentType} is not a {mode} document (expected {expectedDocumentType}).", "{documentType} ไม่ใช่เอกสารของการขนส่งแบบ {mode} (ควรเป็น {expectedDocumentType})");
 
+    // ---------------------------------------------------- proof of delivery
+    public static readonly ErrorDefinition SignatureRequiredDef = new("SIGNATURE_REQUIRED", Conflict,
+        "This shipment requires the receiver's signature. Use POST /api/v1/Shipments/{id}/proof-of-delivery.",
+        "Shipment นี้ต้องมีลายเซ็นผู้รับ ให้ส่งมอบผ่านการบันทึกหลักฐานการส่งมอบ (proof-of-delivery)");
+    public static readonly ErrorDefinition ProofOfDeliveryExistsDef = new("PROOF_OF_DELIVERY_EXISTS", Conflict,
+        "Shipment {trackingNumber} already has a proof of delivery.", "Shipment {trackingNumber} มีหลักฐานการส่งมอบแล้ว");
+    public static readonly ErrorDefinition InvalidFileTypeDef = new("INVALID_FILE_TYPE", BadRequest,
+        "{field} must be an image of type: {allowedTypes}.", "{field} ต้องเป็นไฟล์รูปภาพประเภท: {allowedTypes}");
+    public static readonly ErrorDefinition FileTooLargeDef = new("FILE_TOO_LARGE", BadRequest,
+        "{field} is larger than {maxMegabytes} MB.", "{field} มีขนาดเกิน {maxMegabytes} MB");
+    public static readonly ErrorDefinition TooManyPhotosDef = new("TOO_MANY_PHOTOS", BadRequest,
+        "At most {max} photos are allowed.", "แนบรูปได้ไม่เกิน {max} รูป");
+    public static readonly ErrorDefinition RefusedItemsNotInShipmentDef = new("REFUSED_ITEMS_NOT_IN_SHIPMENT", BadRequest,
+        "Refused items are not in this shipment: {tagCodes}", "สิ่งของที่ปฏิเสธไม่ได้อยู่ใน Shipment นี้: {tagCodes}");
+    public static readonly ErrorDefinition NoItemsDeliveredDef = new("NO_ITEMS_DELIVERED", BadRequest,
+        "Every item was refused; record DELIVERY_FAILED instead of a proof of delivery.",
+        "ผู้รับปฏิเสธสิ่งของทุกชิ้น ให้บันทึกเป็นนำส่งไม่สำเร็จแทนการบันทึกหลักฐานการส่งมอบ");
+
     // All catalog entries, for GET /api/v1/ErrorCodes.
     public static IReadOnlyList<ErrorDefinition> All { get; } = typeof(Errors)
         .GetFields(BindingFlags.Public | BindingFlags.Static)
@@ -201,6 +219,17 @@ public static class Errors
     public static ApiException ContainerEmpty(string container) => Create(ContainerEmptyDef, ("container", container));
     public static ApiException ContainersNotFound(IEnumerable<int> ids) =>
         Create(ContainersNotFoundDef, ("containers", ids.Select(i => i.ToString()).ToList()));
+
+    public static ApiException SignatureRequired() => Create(SignatureRequiredDef);
+    public static ApiException ProofOfDeliveryExists(string trackingNumber) => Create(ProofOfDeliveryExistsDef, ("trackingNumber", trackingNumber));
+    public static ApiException InvalidFileType(string field, IEnumerable<string> allowedTypes) =>
+        Create(InvalidFileTypeDef, ("field", field), ("allowedTypes", allowedTypes.ToList()));
+    public static ApiException FileTooLarge(string field, long maxBytes) =>
+        Create(FileTooLargeDef, ("field", field), ("maxMegabytes", maxBytes / (1024 * 1024)));
+    public static ApiException TooManyPhotos(int max) => Create(TooManyPhotosDef, ("max", max));
+    public static ApiException RefusedItemsNotInShipment(IEnumerable<string> tagCodes) =>
+        Create(RefusedItemsNotInShipmentDef, ("tagCodes", tagCodes.ToList()));
+    public static ApiException NoItemsDelivered() => Create(NoItemsDeliveredDef);
 
     public static ApiException TrackingNumberExists(string trackingNumber) => Create(TrackingNumberExistsDef, ("trackingNumber", trackingNumber));
     public static ApiException ShipmentStatusNotAllowed(string action, object status, IEnumerable<object> allowed) =>

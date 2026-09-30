@@ -1,0 +1,22 @@
+meta {
+  name: Proof of delivery before last leg arrives (400)
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{shipmentId}}/proof-of-delivery
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  signature: @file(fixtures/signature.png)
+  receiverName: Too early
+  receiverRelation: Recipient
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "LEG_NOT_ARRIVED"
+}

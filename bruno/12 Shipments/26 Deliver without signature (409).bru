@@ -1,0 +1,24 @@
+meta {
+  name: Deliver without signature (409)
+  type: http
+  seq: 26
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{shipmentId}}/deliver
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "SIGNATURE_REQUIRED"
+}
+
+docs {
+  Shipments require a receiver signature by default (requiresSignature = true).
+}

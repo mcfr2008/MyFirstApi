@@ -59,6 +59,8 @@ builder.Services.AddScoped<IReasonCodeService, ReasonCodeService>();
 builder.Services.AddScoped<ITrackingEventRecorder, TrackingEventRecorder>();
 builder.Services.AddScoped<ITrackingEventService, TrackingEventService>();
 builder.Services.AddScoped<IShipmentService, ShipmentService>();
+builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
+builder.Services.AddScoped<IStoredFileService, StoredFileService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IMasterDataCache, MasterDataCache>();

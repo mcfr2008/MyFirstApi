@@ -42,6 +42,8 @@ public class Shipment
     public string? Incoterm { get; set; }
     public CustomsStatus CustomsStatus { get; set; } = CustomsStatus.NotRequired;
     public DateTime? PlannedPickupAt { get; set; }
+    // Delivery must go through proof of delivery (receiver signature), not plain /deliver.
+    public bool RequiresSignature { get; set; } = true;
     public DateTime? DeliveredAt { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }

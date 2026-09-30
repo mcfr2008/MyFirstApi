@@ -1,0 +1,16 @@
+meta {
+  name: Get proof of delivery
+  type: http
+  seq: 30
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/{{shipmentId}}/proof-of-delivery
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.receiverRelation: eq "Reception"
+}
