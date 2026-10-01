@@ -83,6 +83,17 @@ public class ShipmentsController : ControllerBase
         return Ok(emissions);
     }
 
+    // Replaces the legs with a planned route: best for the objective, or the given laneIds.
+    [Idempotent]
+    [HttpPost("{id:int}/route")]
+    public async Task<IActionResult> Route(int id, RouteShipmentRequest request)
+    {
+        var result = await _shipmentService.RouteAsync(id, request);
+        if (result == null) return NotFound();
+
+        return Ok(result);
+    }
+
     [HttpGet("{id:int}/items")]
     public async Task<IActionResult> GetItems(int id)
     {

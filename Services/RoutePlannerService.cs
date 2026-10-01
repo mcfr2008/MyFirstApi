@@ -42,17 +42,21 @@ public class RoutePlannerService : IRoutePlannerService
             .Where(l => l.IsActive)
             .ToListAsync();
         var factors = await _context.EmissionFactors.AsNoTracking().Where(f => f.IsActive).ToListAsync();
-        var network = lanes.Select(l => new NetworkLane(l, factors)).ToLookup(l => l.Lane.OriginLocationId);
+        var networkLanes = lanes.Select(l => new NetworkLane(l, factors)).ToList();
+        var network = networkLanes.ToLookup(l => l.Lane.OriginLocationId);
 
         var start = origin.Station.Id;
         var target = destination.Station.Id;
-        var bestPath = Search(network, start, target, readyAt, request.Objective, new HashSet<int>())
-            ?? throw Errors.RouteNotFound(origin.Station.Code, destination.Station.Code, request.Objective);
+        var chosen = request.LaneIds is { Count: > 0 };
+        var bestPath = chosen
+            ? ChosenPath(networkLanes, request.LaneIds!, origin.Station, destination.Station)
+            : Search(network, start, target, readyAt, request.Objective, new HashSet<int>())
+              ?? throw Errors.RouteNotFound(origin.Station.Code, destination.Station.Code, request.Objective);
         var best = BuildOption(bestPath, readyAt, request.WeightKg)!;
 
         var alternatives = new List<RouteOptionResponse>();
         var seen = new HashSet<string> { Signature(bestPath) };
-        foreach (var lane in bestPath)
+        foreach (var lane in chosen ? [] : bestPath)
         {
             var path = Search(network, start, target, readyAt, request.Objective, [lane.Lane.Id]);
             if (path == null || !seen.Add(Signature(path))) continue;
@@ -104,6 +108,25 @@ public class RoutePlannerService : IRoutePlannerService
             MatchedBy = match.MatchedBy,
             Station = RoutePoint.From(station)
         };
+    }
+
+    // The caller's own path: every lane active, chained from start to target.
+    private static List<NetworkLane> ChosenPath(
+        List<NetworkLane> lanes, List<int> laneIds, RoutePoint start, RoutePoint target)
+    {
+        var byId = lanes.ToDictionary(l => l.Lane.Id);
+        var path = laneIds
+            .Select(id => byId.TryGetValue(id, out var lane) ? lane : throw Errors.RouteLaneNotAvailable(id))
+            .ToList();
+
+        var at = start.Id;
+        foreach (var lane in path)
+        {
+            if (lane.Lane.OriginLocationId != at) throw Errors.RouteLanesNotConnected(start.Code, target.Code);
+            at = lane.Lane.DestinationLocationId;
+        }
+        if (at != target.Id) throw Errors.RouteLanesNotConnected(start.Code, target.Code);
+        return path;
     }
 
     // Dijkstra from start to target; returns the lanes in order (empty when start == target),

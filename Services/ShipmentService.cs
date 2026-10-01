@@ -39,14 +39,17 @@ public partial class ShipmentService : IShipmentService
     private readonly ITrackingEventRecorder _recorder;
     private readonly ICurrentUser _currentUser;
     private readonly IFileStorage _fileStorage;
+    private readonly IRoutePlannerService _routePlanner;
 
     public ShipmentService(
-        AppDbContext context, ITrackingEventRecorder recorder, ICurrentUser currentUser, IFileStorage fileStorage)
+        AppDbContext context, ITrackingEventRecorder recorder, ICurrentUser currentUser, IFileStorage fileStorage,
+        IRoutePlannerService routePlanner)
     {
         _context = context;
         _recorder = recorder;
         _currentUser = currentUser;
         _fileStorage = fileStorage;
+        _routePlanner = routePlanner;
     }
 
     // ------------------------------------------------------------------ queries

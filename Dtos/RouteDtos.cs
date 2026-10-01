@@ -61,6 +61,11 @@ public class RoutePlanRequest
     // Other routes to suggest besides the best one.
     [Range(0, 5)]
     public int MaxAlternatives { get; set; } = 2;
+
+    // Evaluate this exact path (lane ids in order, e.g. from an earlier plan's
+    // alternative) instead of searching. No alternatives are returned.
+    [MaxLength(12)]
+    public List<int>? LaneIds { get; set; }
 }
 
 // A location on a route, with its time zone for showing local times.

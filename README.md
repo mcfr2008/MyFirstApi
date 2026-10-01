@@ -46,6 +46,7 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
 - **Route planning**
   - Give a start and an end (address or location) and the API finds the **fastest**, **shortest** or **lowest-emission** route through the lane network.
   - The ETA counts the wait for each truck, train or vessel's next scheduled departure. The API also suggests alternative routes.
+  - **Auto-route a shipment.** One call plans the route and fills in the shipment's legs, including first-mile pickup and last-mile delivery.
 - **Carbon footprint (CO₂e)**
   - Every shipment's greenhouse-gas emissions per leg and in total, following **ISO 14083 / GLEC Framework** (well-to-wheel). The public tracking page shows the total.
 - **Safe retries (idempotency keys)**
@@ -121,7 +122,7 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
 | Containers | master-data endpoints (below) + `GET /{id}/contents` · `POST /{id}/load` · `/unload` · `/scan` |
 | Shipments | `GET/POST /api/v1/Shipments` · `GET/PUT /{id}` · `GET /by-tracking/{no}` · `PUT /{id}/legs/{legId}` · `POST /{id}/legs/{legId}/depart` · `/arrive` · `GET/POST /{id}/items` · `DELETE /{id}/items/{itemId}` · `POST /{id}/customs` · `/events` · `/deliver` · `/cancel` |
 | Proof of delivery | `POST /api/v1/Shipments/{id}/proof-of-delivery` (multipart) · `GET /api/v1/Shipments/{id}/proof-of-delivery` |
-| Route planning | `POST /api/v1/Routes/plan` |
+| Route planning | `POST /api/v1/Routes/plan` · `POST /api/v1/Shipments/{id}/route` |
 | Carbon footprint | `GET /api/v1/Shipments/{id}/emissions` · master data `EmissionFactors` (below) |
 | Public tracking | `GET /api/v1/PublicTracking/{trackingNumber}` (no login, rate limited) |
 | Files | `GET /api/v1/Files/{id}` (signature / photo download, bearer token required) |
@@ -209,7 +210,30 @@ In one transaction, the API:
 - For each leg: the lane, mode, carrier, wait, departure and arrival (UTC, with each point's `timeZone`), transit time, distance and CO₂e per tonne.
 - Totals: ETA, total/transit/wait minutes, distance, CO₂e per tonne, and CO₂e in kg when `weightKg` is given.
 
+**Choosing a route.** Pass `laneIds` (the lane ids of an alternative, in order) to evaluate that exact path instead of searching. The lanes must be active and chained from the start to the end.
+
+### Auto-routing a shipment
+
+`POST /api/v1/Shipments/{id}/route` plans a route for a **Planned** shipment and **replaces its legs**:
+
+```json
+{ "objective": "Fastest", "laneIds": null, "readyAt": null, "firstMileMinutes": 120, "lastMileMinutes": 240 }
+```
+
+| Leg | When | Mode / times |
+|---|---|---|
+| First mile: origin customer → its station | The origin is a customer address | Courier, from `readyAt` (default `plannedPickupAt`, else now) for `firstMileMinutes` |
+| One leg per lane | Always | The lane's mode and carrier, with the scheduled departure and arrival as ETD / ETA |
+| Last mile: destination station → customer | The destination is a customer address | Courier, from the arrival at the station for `lastMileMinutes` |
+
+**Behaviour**
+- The response holds the updated shipment and the plan it came from, including alternatives. Send one alternative's `laneIds` to switch to it.
+- Legs are updated in place by sequence, so leg ids stay stable, and the usual leg rules apply.
+- The endpoint supports `Idempotency-Key`.
+
 **Errors**
+- `409 SHIPMENT_STATUS_NOT_ALLOWED`: the shipment isn't Planned.
+- `400 ROUTE_LANE_NOT_AVAILABLE` / `ROUTE_LANES_NOT_CONNECTED`: the given `laneIds` aren't usable.
 - `404 ROUTE_ENDPOINT_NOT_COVERED`: no service area covers an end.
 - `404 ROUTE_NOT_FOUND`: no chain of active lanes connects the two ends.
 
@@ -389,7 +413,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (311 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (322 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -458,6 +482,7 @@ Before deploying beyond local development:
 - [x] Route planning, phase 1: lanes (scheduled hub-to-hub connections)
 - [x] Carbon footprint per shipment (ISO 14083 / GLEC, well-to-wheel)
 - [x] Route planner: fastest / shortest / lowest-emission routes with schedule-aware ETA and alternatives
+- [x] Auto-route a shipment: legs (first mile, lanes, last mile) generated from a plan
 - [ ] Route planning: auto-generated shipment legs, misroute detection
 - [ ] Automated tests, CI/CD, health checks
 

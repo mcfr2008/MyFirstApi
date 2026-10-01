@@ -1,0 +1,30 @@
+meta {
+  name: Route - lowest emissions, custom first and last mile
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{arShipmentId}}/route
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "objective": "LowestEmissions",
+    "firstMileMinutes": 60,
+    "lastMileMinutes": 30
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.shipment.legs[2].mode: eq "Rail"
+  res.body.shipment.legs[0].plannedArrival: eq "2026-10-02T07:00:00Z"
+  res.body.shipment.legs[4].plannedArrival: eq "2026-10-03T06:10:00Z"
+}
+
+docs {
+  Ready at the station 14:00, still the 18:00 train; arrives at the branch Sat 12:40, customer 13:10.
+}

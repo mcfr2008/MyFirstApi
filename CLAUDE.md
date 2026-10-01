@@ -84,7 +84,17 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
     - Lanes with an unknown distance are skipped for those two objectives.
   - **Alternatives.** Simplified Yen's: the search is re-run excluding each lane of the best path, keeping distinct paths ranked by the objective.
   - **Reuse.** Distance and factor helpers are shared with the carbon footprint in `Services/TransportEstimates.cs`.
-- **Next phases.** Generating shipment legs from a plan and detecting misroutes will build on the planner. Don't build them until the user asks.
+  - **`laneIds`.** A `RoutePlanRequest` with `laneIds` skips the search and evaluates that path (`ChosenPath`): every lane must be active (`ROUTE_LANE_NOT_AVAILABLE`) and chained station to station (`ROUTE_LANES_NOT_CONNECTED`).
+- **Auto-route a shipment.** `POST /api/v1/Shipments/{id}/route` is `[Idempotent]` and implemented in `ShipmentService.Routing.cs`, a partial class. `ShipmentService` now depends on `IRoutePlannerService`.
+  - It runs on Planned shipments only, with action `route`.
+  - It plans from the shipment's origin to its destination location.
+  - **First mile.** When the origin isn't its own station, it adds a Courier first-mile leg (`FirstMileMinutes`, default 120). The planner starts at `readyAt + firstMile`, where `readyAt` defaults to `PlannedPickupAt`, else now.
+  - **Lanes.** It adds one leg per lane, with the lane's mode, carrier and the scheduled times as ETD/ETA.
+  - **Last mile.** It adds a Courier last-mile leg (`LastMileMinutes`, default 240).
+  - **Saving.** Legs replace the existing ones through `ApplyLegsAsync`: in place by sequence, with the same chain and transport rules.
+  - It returns `ShipmentRouteResponse { shipment, plan }`.
+  - The lane a leg came from isn't stored, because legs keep only origin/destination/mode/carrier.
+- **Next phases.** Misroute detection (a scan at a location that isn't on the planned legs) will build on this. Don't build it until the user asks.
 
 ### Tracking model (the core of Thing-Tag)
 

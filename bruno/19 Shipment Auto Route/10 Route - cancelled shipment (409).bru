@@ -1,0 +1,23 @@
+meta {
+  name: Route - cancelled shipment (409)
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{arShipmentId}}/route
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "objective": "Fastest"
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "SHIPMENT_STATUS_NOT_ALLOWED"
+  res.body.args.action: eq "route"
+}

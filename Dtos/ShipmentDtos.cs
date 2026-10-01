@@ -360,3 +360,33 @@ public class ShipmentResponse
         };
     }
 }
+
+// Plan a route for a Planned shipment and replace its legs with it.
+public class RouteShipmentRequest
+{
+    public RouteObjective Objective { get; set; } = RouteObjective.Fastest;
+
+    // Use this exact path (lane ids from a /Routes/plan option) instead of the best one.
+    [MaxLength(12)]
+    public List<int>? LaneIds { get; set; }
+
+    // When the goods are ready for pickup at the shipment's origin.
+    // Defaults to the shipment's PlannedPickupAt, else now.
+    public DateTimeOffset? ReadyAt { get; set; }
+
+    // Pickup from a customer address to its station (Courier leg), when the origin is one.
+    [Range(0, 2880)]
+    public int FirstMileMinutes { get; set; } = 120;
+
+    // Delivery from the destination station to a customer address (Courier leg), when the destination is one.
+    [Range(0, 2880)]
+    public int LastMileMinutes { get; set; } = 240;
+}
+
+public class ShipmentRouteResponse
+{
+    // The shipment with its new legs.
+    public ShipmentResponse Shipment { get; set; } = null!;
+    // The station-to-station plan the lane legs came from.
+    public RoutePlanResponse Plan { get; set; } = null!;
+}

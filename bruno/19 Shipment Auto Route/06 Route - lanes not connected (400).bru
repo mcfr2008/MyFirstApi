@@ -1,0 +1,31 @@
+meta {
+  name: Route - lanes not connected (400)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{arShipmentId}}/route
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "laneIds": {{arRailOnly}}
+  }
+}
+
+script:pre-request {
+  const ids = JSON.parse(bru.getVar("arRailLaneIds"));
+  bru.setVar("arRailOnly", JSON.stringify([ids[1]]));
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "ROUTE_LANES_NOT_CONNECTED"
+}
+
+docs {
+  Only the rail lane: it doesn't start at the Bangna branch.
+}

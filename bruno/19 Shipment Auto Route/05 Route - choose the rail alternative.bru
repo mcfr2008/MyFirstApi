@@ -1,0 +1,30 @@
+meta {
+  name: Route - choose the rail alternative
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{arShipmentId}}/route
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "laneIds": {{arRailLaneIds}}
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.shipment.legs.length: eq 5
+  res.body.shipment.legs[2].mode: eq "Rail"
+  res.body.shipment.legs[0].id: eq {{arFirstLegId}}
+  res.body.plan.alternatives.length: eq 0
+  res.body.shipment.legs[4].plannedArrival: eq "2026-10-03T09:40:00Z"
+}
+
+docs {
+  laneIds from the plan's alternative. Legs are updated in place by sequence, so leg 1 keeps its id; the sixth leg is removed.
+}

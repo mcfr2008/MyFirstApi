@@ -1,0 +1,17 @@
+meta {
+  name: 19 Shipment Auto Route
+  seq: 19
+}
+
+auth {
+  mode: inherit
+}
+
+docs {
+  POST /api/v1/Shipments/{id}/route plans a route and replaces the shipment's legs:
+  first mile (customer -> station, Courier), one leg per lane with scheduled times,
+  last mile (station -> customer, Courier).
+
+  Uses the network from 18 Route Planning. Pickup Friday 13:00 + 2 h first mile =
+  ready at Bangna branch 15:00, the same start as the planner tests.
+}
