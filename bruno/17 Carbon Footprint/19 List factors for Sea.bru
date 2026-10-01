@@ -1,0 +1,21 @@
+meta {
+  name: List factors for Sea
+  type: http
+  seq: 19
+}
+
+get {
+  url: {{baseUrl}}/api/v1/EmissionFactors?mode=Sea&includeInactive=true
+  body: none
+  auth: inherit
+}
+
+params:query {
+  mode: Sea
+  includeInactive: true
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: gte 2
+}

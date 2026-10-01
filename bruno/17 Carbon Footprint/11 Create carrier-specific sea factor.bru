@@ -1,0 +1,32 @@
+meta {
+  name: Create carrier-specific sea factor
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/EmissionFactors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "SEA-{{runId}}",
+    "name": "Our shipping line (reported)",
+    "mode": "Sea",
+    "carrierId": {{carrierId}},
+    "gramsCo2ePerTonneKm": 10,
+    "source": "Carrier sustainability report 2025"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.carrier.id: eq {{carrierId}}
+  res.body.gramsCo2ePerTonneKm: eq 10
+}
+
+script:post-response {
+  bru.setVar("cfSeaFactorId", res.body.id);
+}

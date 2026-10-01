@@ -59,6 +59,8 @@ builder.Services.AddScoped<ICarrierService, CarrierService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
 builder.Services.AddScoped<IServiceAreaService, ServiceAreaService>();
 builder.Services.AddScoped<ILaneService, LaneService>();
+builder.Services.AddScoped<IEmissionFactorService, EmissionFactorService>();
+builder.Services.AddScoped<ICarbonFootprintService, CarbonFootprintService>();
 builder.Services.AddScoped<IContainerService, ContainerService>();
 builder.Services.AddScoped<IReasonCodeService, ReasonCodeService>();
 builder.Services.AddScoped<ITrackingEventRecorder, TrackingEventRecorder>();

@@ -1,0 +1,52 @@
+meta {
+  name: Create shipment Bangkok - Tokyo
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{cfBkkId}},
+    "destinationLocationId": {{cfCustId}},
+    "tagCodes": [
+      "{{cfItem1Tag}}",
+      "{{cfItem2Tag}}"
+    ],
+    "legs": [
+      {
+        "mode": "Road",
+        "originLocationId": {{cfBkkId}},
+        "destinationLocationId": {{cfLcbId}},
+        "carrierId": {{roadCarrierId}}
+      },
+      {
+        "mode": "Sea",
+        "originLocationId": {{cfLcbId}},
+        "destinationLocationId": {{cfTyoId}},
+        "carrierId": {{carrierId}}
+      },
+      {
+        "mode": "Road",
+        "originLocationId": {{cfTyoId}},
+        "destinationLocationId": {{cfCustId}}
+      }
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("cfShipmentId", res.body.id);
+  bru.setVar("cfTrackingNumber", res.body.trackingNumber);
+}

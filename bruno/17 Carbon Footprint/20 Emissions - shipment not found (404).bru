@@ -1,0 +1,15 @@
+meta {
+  name: Emissions - shipment not found (404)
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/999999/emissions
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 404
+}

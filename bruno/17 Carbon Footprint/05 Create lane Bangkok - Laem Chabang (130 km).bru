@@ -1,0 +1,27 @@
+meta {
+  name: Create lane Bangkok - Laem Chabang (130 km)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CF-BKK-LCB-{{runId}}",
+    "name": "Bangkok hub - Laem Chabang",
+    "originLocationId": {{cfBkkId}},
+    "destinationLocationId": {{cfLcbId}},
+    "mode": "Road",
+    "transitTimeMinutes": 150,
+    "distanceKm": 130
+  }
+}
+
+assert {
+  res.status: eq 201
+}

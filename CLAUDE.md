@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > Thing-Tag คือระบบติดตามอัจฉริยะที่ออกแบบมาเพื่อเกาะติดทุกการเคลื่อนไหวของสิ่งของทุกประเภท ตั้งแต่ต้นทางจนถึงปลายทางอย่างไร้รอยต่อ มอบประสบการณ์การขนส่งที่โปร่งใสและตรวจสอบได้จริง เหมือนกับระบบโลจิสติกส์มาตรฐานระดับสากล
 
-Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; and idempotency keys for safe retries. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
+Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; and carbon footprint. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
 
 ## Commands
 
@@ -47,7 +47,7 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
 - **CORS.** Policy "Frontend" allows the origins in `Cors:AllowedOrigins` (dev servers are listed in `appsettings.Development.json`, and the list is empty in `appsettings.json`).
 - Enums are serialized as strings (`[JsonConverter(typeof(JsonStringEnumConverter<T>))]` on the enum) and stored as strings (`HasConversion<string>()`).
 - Lists are paged with `PagedResult<T>`. Items are archived (`IsArchived`) instead of deleted so tracking history survives.
-- **Master data** (`ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, `ServiceAreas`, `Lanes`) is built on shared generic bases: `Services/MasterDataService<...>` and `Controllers/MasterDataController<...>`.
+- **Master data** (`ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, `ServiceAreas`, `Lanes`, `EmissionFactors`) is built on shared generic bases: `Services/MasterDataService<...>` and `Controllers/MasterDataController<...>`.
   - Each concrete service only defines its DbSet, projection, search, filters, order and `Apply`. Each concrete controller only adds `[Route]`.
   - Entities implement `Models/IMasterData`, and responses implement `IMasterDataResponse`.
   - Codes are unique and stored upper-case. `DELETE` deactivates (`IsActive=false`) instead of deleting.
@@ -125,6 +125,20 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
 - **Storage.** `IFileStorage` is implemented by `LocalFileStorage` (disk under `FileStorage:RootPath`, default `App_Data/files`, which is git-ignored and a Docker volume). A cloud implementation can replace it.
   - `StoredFile.Id` is a random GUID used in `GET /api/v1/Files/{id}`, and `Sha256` is kept as tamper evidence and the ETag.
 - **JSON keys.** `ProofOfDelivery.RefusedItems` is jsonb with camelCase keys (`[JsonPropertyName]`), so SQL like `->>'reasonCode'` matches the API.
+
+### Carbon footprint
+
+- **Calculation.** `Services/CarbonFootprintService.cs` (`ICarbonFootprintService`) computes per leg `CO2e kg = tonnes x km x gCO2e/tkm / 1000` (ISO 14083 / GLEC, well-to-wheel). It is served by `GET /api/v1/Shipments/{id}/emissions` and summarised in public tracking (`emissions`).
+- **Inputs:**
+  - **Mass:** the sum of `TrackedItem.WeightKg` over the current `ShipmentItems`.
+  - **Distance:** an active `Lane` with `DistanceKm` between the same two points in the same mode family, preferring the exact mode. Otherwise the haversine great-circle distance adjusted by mode (Sea x1.15, Air +95 km, others x1.2). Otherwise `Unknown`.
+  - **Factor:** the active `EmissionFactor` for (mode, leg carrier), else for (mode, no carrier).
+- **Missing data is never guessed.** Missing weight, distance or factor goes into `DataGaps` and makes `IsComplete` false, and the totals only sum the legs that could be calculated.
+- **Emission factors.** `EmissionFactors` is master data (`Scripts/033`).
+  - There is one row per (Mode, CarrierId), with a NULL carrier as the mode's default. This is enforced by `EMISSION_FACTOR_OVERLAP` and by a unique index on `(Mode, COALESCE(CarrierId, 0))`.
+  - The carrier must run the mode.
+  - The seeded defaults are **indicative**, and docs must keep saying so. Never present them as official GLEC values.
+- **Not stored yet.** Results are calculated on demand. A snapshot at delivery or a monthly report would be a later step.
 
 ### Public tracking
 

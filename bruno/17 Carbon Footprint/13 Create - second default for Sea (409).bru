@@ -1,0 +1,26 @@
+meta {
+  name: Create - second default for Sea (409)
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/v1/EmissionFactors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "SEA2-{{runId}}",
+    "name": "Another sea default",
+    "mode": "Sea",
+    "gramsCo2ePerTonneKm": 12
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "EMISSION_FACTOR_OVERLAP"
+  res.body.args.emissionFactor: eq "SEA-DEFAULT"
+}

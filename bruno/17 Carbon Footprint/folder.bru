@@ -1,0 +1,18 @@
+meta {
+  name: 17 Carbon Footprint
+  seq: 17
+}
+
+auth {
+  mode: inherit
+}
+
+docs {
+  Shipment CO2e (ISO 14083 / GLEC, well-to-wheel): per leg, tonnes x km x gCO2e/tkm.
+
+  Test journey, 2 tonnes (500 kg + 1500 kg):
+  1. Bangkok hub -> Laem Chabang, truck: lane distance 130 km x 2 t x 100 g = 26 kg
+  2. Laem Chabang -> Tokyo port, ship: great-circle 4,624 km x 1.15 = 5,317 km x 2 t x 15 g = 159.5 kg
+  3. Tokyo port -> customer, truck: customer has no coordinates yet, so the result is incomplete
+     until request 15 adds them (4.2 km x 2 t x 100 g = 0.84 kg).
+}

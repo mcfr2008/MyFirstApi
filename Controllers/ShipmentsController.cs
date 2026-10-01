@@ -12,10 +12,12 @@ namespace MyFirstApi.Controllers;
 public class ShipmentsController : ControllerBase
 {
     private readonly IShipmentService _shipmentService;
+    private readonly ICarbonFootprintService _carbonFootprintService;
 
-    public ShipmentsController(IShipmentService shipmentService)
+    public ShipmentsController(IShipmentService shipmentService, ICarbonFootprintService carbonFootprintService)
     {
         _shipmentService = shipmentService;
+        _carbonFootprintService = carbonFootprintService;
     }
 
     [HttpGet]
@@ -69,6 +71,16 @@ public class ShipmentsController : ControllerBase
         if (shipment == null) return NotFound();
 
         return Ok(shipment);
+    }
+
+    // Carbon footprint (CO2e, ISO 14083 / GLEC, well-to-wheel) per leg and in total.
+    [HttpGet("{id:int}/emissions")]
+    public async Task<IActionResult> GetEmissions(int id)
+    {
+        var emissions = await _carbonFootprintService.CalculateAsync(id);
+        if (emissions == null) return NotFound();
+
+        return Ok(emissions);
     }
 
     [HttpGet("{id:int}/items")]

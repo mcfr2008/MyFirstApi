@@ -1,0 +1,22 @@
+meta {
+  name: Emissions - sea leg uses the carrier's factor
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/{{cfShipmentId}}/emissions
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.legs[1].emissionFactor.code: eq SEA-{{runId}}
+}
+
+tests {
+  test("10 g instead of 15 g per tonne-km", function () {
+    expect(res.body.legs[1].co2eKg).to.be.closeTo(106.342, 0.01);
+  });
+}

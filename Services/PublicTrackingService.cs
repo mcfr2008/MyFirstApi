@@ -11,10 +11,12 @@ namespace MyFirstApi.Services;
 public class PublicTrackingService : IPublicTrackingService
 {
     private readonly AppDbContext _context;
+    private readonly ICarbonFootprintService _carbonFootprintService;
 
-    public PublicTrackingService(AppDbContext context)
+    public PublicTrackingService(AppDbContext context, ICarbonFootprintService carbonFootprintService)
     {
         _context = context;
+        _carbonFootprintService = carbonFootprintService;
     }
 
     public async Task<PublicTrackingResponse?> TrackAsync(string trackingNumber)
@@ -35,6 +37,7 @@ public class PublicTrackingService : IPublicTrackingService
             .ToDictionaryAsync(si => si.TrackedItemId, si => si.AddedAt);
         var signed = await _context.ProofsOfDelivery.AnyAsync(p => p.ShipmentId == shipment.Id);
         var legs = shipment.Legs.OrderBy(l => l.Sequence).ToList();
+        var emissions = (await _carbonFootprintService.CalculateAsync(shipment.Id))!;
 
         return new PublicTrackingResponse
         {
@@ -48,6 +51,7 @@ public class PublicTrackingService : IPublicTrackingService
             DeliveredAt = shipment.DeliveredAt,
             SignedForDelivery = signed,
             TotalPieces = itemsAddedAt.Count,
+            Emissions = new EmissionsSummary { Co2eKg = emissions.TotalCo2eKg, IsComplete = emissions.IsComplete },
             Legs = legs.Select(PublicLegResponse.From).ToList(),
             Events = await GetEventsAsync(shipment, itemsAddedAt)
         };
