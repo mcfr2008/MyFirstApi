@@ -43,6 +43,8 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
   - The receiver **signs on the courier's device**, optionally with photos. The API stores the signature image with its SHA-256, the receiver's name and relation, GPS and time.
   - The same request delivers the shipment. Items the receiver refuses get `DELIVERY_FAILED` with a reason instead.
   - Shipments require a signature by default.
+- **Carbon footprint (CO₂e)**
+  - Every shipment's greenhouse-gas emissions per leg and in total, following **ISO 14083 / GLEC Framework** (well-to-wheel). The public tracking page shows the total.
 - **Safe retries (idempotency keys)**
   - Scans, events, container and shipment operations and item creation accept an `Idempotency-Key` header. A retry after a lost connection returns the first response instead of recording twice.
 - **Public tracking**
@@ -116,10 +118,11 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
 | Containers | master-data endpoints (below) + `GET /{id}/contents` · `POST /{id}/load` · `/unload` · `/scan` |
 | Shipments | `GET/POST /api/v1/Shipments` · `GET/PUT /{id}` · `GET /by-tracking/{no}` · `PUT /{id}/legs/{legId}` · `POST /{id}/legs/{legId}/depart` · `/arrive` · `GET/POST /{id}/items` · `DELETE /{id}/items/{itemId}` · `POST /{id}/customs` · `/events` · `/deliver` · `/cancel` |
 | Proof of delivery | `POST /api/v1/Shipments/{id}/proof-of-delivery` (multipart) · `GET /api/v1/Shipments/{id}/proof-of-delivery` |
+| Carbon footprint | `GET /api/v1/Shipments/{id}/emissions` · master data `EmissionFactors` (below) |
 | Public tracking | `GET /api/v1/PublicTracking/{trackingNumber}` (no login, rate limited) |
 | Files | `GET /api/v1/Files/{id}` (signature / photo download, bearer token required) |
 | Service areas | master-data endpoints (below) + `GET /api/v1/ServiceAreas/resolve?postalCode=&province=` or `?locationId=` |
-| Master data | `ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, `ServiceAreas`, `Lanes`, each with `GET` (search, filters, paging) · `POST` · `GET/PUT /{id}` · `GET /by-code/{code}` · `DELETE /{id}` (deactivate) · `POST /{id}/activate` |
+| Master data | `ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, `ServiceAreas`, `Lanes`, `EmissionFactors`, each with `GET` (search, filters, paging) · `POST` · `GET/PUT /{id}` · `GET /by-code/{code}` · `DELETE /{id}` (deactivate) · `POST /{id}/activate` |
 | Legacy | `/api/v1/Products` CRUD (sample from before Thing-Tag) |
 
 **Conventions**
@@ -177,6 +180,28 @@ In one transaction, the API:
 **Files**
 - **Storage.** Files are stored under `FileStorage:RootPath` (`App_Data/files` by default; Docker Compose uses the `files-data` volume). They're served by `GET /api/v1/Files/{id}` with the bearer token, so a frontend fetches the image as a blob rather than using `<img src>`.
 - **Personal data.** Signatures and photos are personal data under PDPA; role-based access to them comes with the permissions phase.
+
+## Carbon footprint
+
+`GET /api/v1/Shipments/{id}/emissions` calculates the shipment's greenhouse-gas emissions with the **ISO 14083 / GLEC Framework** method (well-to-wheel CO₂e):
+
+**CO₂e (kg) = mass (t) × distance (km) × emission factor (g CO₂e per tonne-km) ÷ 1000**, per leg.
+
+| Input | Where it comes from |
+|---|---|
+| Mass | Sum of `weightKg` of the items in the shipment |
+| Distance | 1. `distanceKm` of an active **lane** between the leg's two points, else<br>2. the **great-circle** distance between their coordinates, adjusted for real routes: sea × 1.15 and air + 95 km (GLEC), road and rail × 1.2 |
+| Emission factor | 1. The leg **carrier's own** factor for the mode, else<br>2. the **mode default** (`EmissionFactors` master data) |
+
+**Result and missing data**
+- The response gives each leg's distance and its source (`Lane`, `GreatCircle` or `Unknown`), its tonne-km, the factor used and its CO₂e, plus the totals.
+- Missing data is reported, never guessed. `isComplete` is false and `dataGaps` lists the problems: `ItemsWithoutWeight`, `LegDistanceUnknown`, `EmissionFactorMissing` or `NoItems`.
+
+**Public tracking and storage**
+- Public tracking shows `emissions: { co2eKg, isComplete }`.
+- Values are calculated on demand from current data and not stored yet.
+
+> **Emission factors.** `Scripts/033` seeds **indicative** mode defaults (Road 100, Courier 500, Rail 25, Air 1000 and Sea 15 g CO₂e/tkm). Replace them with values from the GLEC Framework default tables or your carriers' reported intensities before using the results for official reporting. A carrier-specific factor (`carrierId`) overrides the default for that carrier's legs.
 
 ## Public tracking
 
@@ -260,7 +285,7 @@ export Jwt__Key="<long-random-secret>"
 
 #### 3. Create the schema
 
-The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `032`). Re-running them only applies what's new.
+The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `033`). Re-running them only applies what's new.
 
 With `psql` installed on the host:
 
@@ -288,6 +313,7 @@ done
 | `030` | Idempotency keys (stored responses for safe retries) |
 | `031` | Service areas (postal code / province → station and hub) |
 | `032` | Lanes (scheduled one-way connections between network points) |
+| `033` | Emission factors (gCO₂e per tonne-km per mode / carrier) with indicative defaults |
 
 #### 4. Run
 
@@ -331,7 +357,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (266 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (286 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -398,6 +424,7 @@ Before deploying beyond local development:
 - [ ] Concurrency control and offline scanning (batch upload of queued scans)
 - [x] Route planning, phase 1: service areas (postal code / province → station and hub)
 - [x] Route planning, phase 1: lanes (scheduled hub-to-hub connections)
+- [x] Carbon footprint per shipment (ISO 14083 / GLEC, well-to-wheel)
 - [ ] Route planning: route planner, auto-generated shipment legs, misroute detection
 - [ ] Automated tests, CI/CD, health checks
 

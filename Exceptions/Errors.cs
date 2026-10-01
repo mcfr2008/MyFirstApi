@@ -92,6 +92,9 @@ public static class Errors
         "{field}: location {location} is a {type}; allowed types: {allowedTypes}.",
         "{field}: สถานที่ {location} เป็นประเภท {type} ซึ่งใช้ไม่ได้ (ใช้ได้: {allowedTypes})");
 
+    public static readonly ErrorDefinition EmissionFactorOverlapDef = new("EMISSION_FACTOR_OVERLAP", Conflict,
+        "{mode} {carrier} already has emission factor {emissionFactor}.", "{mode} {carrier} มีค่าการปล่อยก๊าซ {emissionFactor} อยู่แล้ว");
+
     // --------------------------------------------------------- service areas
     public static readonly ErrorDefinition ServiceAreaOverlapDef = new("SERVICE_AREA_OVERLAP", Conflict,
         "{coverage} is already covered by service area {serviceArea}.", "พื้นที่ {coverage} มีพื้นที่ให้บริการ {serviceArea} ดูแลอยู่แล้ว");
@@ -230,6 +233,9 @@ public static class Errors
     public static ApiException LocationTypeNotAllowed(string field, string location, object type, IEnumerable<object> allowed) =>
         Create(LocationTypeNotAllowedDef, ("field", field), ("location", location), ("type", type.ToString()),
             ("allowedTypes", allowed.Select(a => a.ToString()!).ToList()));
+
+    public static ApiException EmissionFactorOverlap(object mode, string? carrier, string emissionFactor) =>
+        Create(EmissionFactorOverlapDef, ("mode", mode.ToString()), ("carrier", carrier ?? "(default)"), ("emissionFactor", emissionFactor));
 
     public static ApiException ServiceAreaOverlap(string coverage, string serviceArea) =>
         Create(ServiceAreaOverlapDef, ("coverage", coverage), ("serviceArea", serviceArea));

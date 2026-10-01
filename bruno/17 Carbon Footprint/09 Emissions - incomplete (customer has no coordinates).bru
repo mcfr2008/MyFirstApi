@@ -1,0 +1,37 @@
+meta {
+  name: Emissions - incomplete (customer has no coordinates)
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/{{cfShipmentId}}/emissions
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.massKg: eq 2000
+  res.body.pieces: eq 2
+  res.body.isComplete: eq false
+  res.body.dataGaps[0]: eq "LegDistanceUnknown"
+  res.body.legs[0].distanceSource: eq "Lane"
+  res.body.legs[0].distanceKm: eq 130
+  res.body.legs[0].tonneKm: eq 260
+  res.body.legs[0].emissionFactor.code: eq "ROAD-DEFAULT"
+  res.body.legs[0].co2eKg: eq 26
+  res.body.legs[1].distanceSource: eq "GreatCircle"
+  res.body.legs[1].emissionFactor.code: eq "SEA-DEFAULT"
+  res.body.legs[2].distanceSource: eq "Unknown"
+  res.body.legs[2].co2eKg: isNull
+}
+
+tests {
+  test("sea leg = great-circle x 1.15, total = road + sea", function () {
+    const sea = res.body.legs[1];
+    expect(sea.distanceKm).to.be.closeTo(5317.1, 0.2);
+    expect(sea.co2eKg).to.be.closeTo(159.512, 0.01);
+    expect(res.body.totalCo2eKg).to.be.closeTo(26 + sea.co2eKg, 0.001);
+  });
+}

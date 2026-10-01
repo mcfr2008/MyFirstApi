@@ -1,0 +1,31 @@
+meta {
+  name: Create Tokyo port
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CF-TYO-{{runId}}",
+    "name": "Port of Tokyo",
+    "type": "Port",
+    "country": "JP",
+    "timeZone": "Asia/Tokyo",
+    "latitude": 35.62,
+    "longitude": 139.78
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("cfTyoId", res.body.id);
+}

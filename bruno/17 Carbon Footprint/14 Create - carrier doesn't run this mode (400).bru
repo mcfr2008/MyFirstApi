@@ -1,0 +1,26 @@
+meta {
+  name: Create - carrier doesn't run this mode (400)
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/v1/EmissionFactors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "AIR-{{runId}}",
+    "name": "Shipping line as airline",
+    "mode": "Air",
+    "carrierId": {{carrierId}},
+    "gramsCo2ePerTonneKm": 800
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "CARRIER_MODE_NOT_SUPPORTED"
+}

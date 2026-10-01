@@ -1,0 +1,16 @@
+meta {
+  name: Emissions - sea leg uses the default again
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/{{cfShipmentId}}/emissions
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.legs[1].emissionFactor.code: eq "SEA-DEFAULT"
+}

@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<Vehicle> Vehicles { get; set; }
     public DbSet<ServiceArea> ServiceAreas { get; set; }
     public DbSet<Lane> Lanes { get; set; }
+    public DbSet<EmissionFactor> EmissionFactors { get; set; }
     public DbSet<Container> Containers { get; set; }
     public DbSet<TrackingEvent> TrackingEvents { get; set; }
     public DbSet<Shipment> Shipments { get; set; }
@@ -117,6 +118,15 @@ public class AppDbContext : DbContext
                 .HasForeignKey(l => l.DestinationLocationId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(l => l.Carrier).WithMany()
                 .HasForeignKey(l => l.CarrierId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<EmissionFactor>(entity =>
+        {
+            entity.HasIndex(f => f.Code).IsUnique();
+            entity.Property(f => f.Mode).HasConversion<string>();
+            entity.Property(f => f.GramsCo2ePerTonneKm).HasPrecision(10, 3);
+            entity.HasOne(f => f.Carrier).WithMany()
+                .HasForeignKey(f => f.CarrierId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Container>(entity =>

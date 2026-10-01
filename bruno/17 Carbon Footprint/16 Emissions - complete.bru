@@ -1,0 +1,24 @@
+meta {
+  name: Emissions - complete
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/{{cfShipmentId}}/emissions
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.isComplete: eq true
+  res.body.dataGaps.length: eq 0
+  res.body.legs[2].distanceSource: eq "GreatCircle"
+}
+
+tests {
+  test("last road leg ~4.2 km x 2 t x 100 g", function () {
+    expect(res.body.legs[2].co2eKg).to.be.closeTo(0.842, 0.01);
+  });
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Public tracking shows the footprint
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/PublicTracking/{{cfTrackingNumber}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.emissions.isComplete: eq false
+}
+
+tests {
+  test("same total as the emissions endpoint", function () {
+    expect(res.body.emissions.co2eKg).to.be.closeTo(185.512, 0.01);
+  });
+}
+
+docs {
+  Anonymous: only the total and whether it is complete.
+}

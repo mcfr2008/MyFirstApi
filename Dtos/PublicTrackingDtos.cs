@@ -19,6 +19,8 @@ public class PublicTrackingResponse
     // Delivery was confirmed with a receiver signature.
     public bool SignedForDelivery { get; set; }
     public int TotalPieces { get; set; }
+    // Carbon footprint of the whole shipment (kg CO2e, well-to-wheel).
+    public EmissionsSummary Emissions { get; set; } = null!;
     public List<PublicLegResponse> Legs { get; set; } = new();
     // Newest first. Events recorded for several pieces at once are one entry.
     public List<PublicTrackingEventResponse> Events { get; set; } = new();

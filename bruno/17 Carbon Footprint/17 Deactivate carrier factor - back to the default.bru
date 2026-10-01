@@ -1,0 +1,15 @@
+meta {
+  name: Deactivate carrier factor - back to the default
+  type: http
+  seq: 17
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/EmissionFactors/{{cfSeaFactorId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}
