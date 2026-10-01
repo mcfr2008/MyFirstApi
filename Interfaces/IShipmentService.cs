@@ -11,6 +11,9 @@ public interface IShipmentService
     Task<ShipmentResponse?> UpdateShipmentAsync(int id, UpdateShipmentRequest request);
     Task<ShipmentResponse?> UpdateLegAsync(int id, int legId, UpdateShipmentLegRequest request);
 
+    // Plans a route (see IRoutePlannerService) and replaces the legs; Planned shipments only.
+    Task<ShipmentRouteResponse?> RouteAsync(int id, RouteShipmentRequest request);
+
     Task<IReadOnlyList<TrackedItemResponse>?> GetItemsAsync(int id);
     Task<ShipmentResponse?> AddItemsAsync(int id, ShipmentItemsRequest request);
     Task<ShipmentResponse?> RemoveItemAsync(int id, int trackedItemId);

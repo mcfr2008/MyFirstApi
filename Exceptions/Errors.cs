@@ -98,6 +98,11 @@ public static class Errors
     // --------------------------------------------------------- service areas
     public static readonly ErrorDefinition RouteEndpointNotCoveredDef = new("ROUTE_ENDPOINT_NOT_COVERED", StatusCodes.Status404NotFound,
         "No active service area covers the {end} ({coverage}).", "ไม่มีพื้นที่ให้บริการที่เปิดใช้งานครอบคลุมจุด {end} ({coverage})");
+    public static readonly ErrorDefinition RouteLaneNotAvailableDef = new("ROUTE_LANE_NOT_AVAILABLE", BadRequest,
+        "Lane {laneId} doesn't exist or is inactive.", "ไม่พบ lane {laneId} หรือถูกปิดใช้งานแล้ว");
+    public static readonly ErrorDefinition RouteLanesNotConnectedDef = new("ROUTE_LANES_NOT_CONNECTED", BadRequest,
+        "laneIds must lead from {origin} to {destination}, each lane starting where the previous one ends.",
+        "laneIds ต้องต่อกันจาก {origin} ไป {destination} โดยแต่ละ lane เริ่มที่จุดที่ lane ก่อนหน้าสิ้นสุด");
     public static readonly ErrorDefinition RouteNotFoundDef = new("ROUTE_NOT_FOUND", StatusCodes.Status404NotFound,
         "No route from {origin} to {destination} over active lanes (objective: {objective}).",
         "ไม่พบเส้นทางจาก {origin} ไป {destination} ด้วย lanes ที่เปิดใช้งาน (เกณฑ์: {objective})");
@@ -244,6 +249,9 @@ public static class Errors
 
     public static ApiException RouteEndpointNotCovered(string end, string coverage) =>
         Create(RouteEndpointNotCoveredDef, ("end", end), ("coverage", coverage));
+    public static ApiException RouteLaneNotAvailable(int laneId) => Create(RouteLaneNotAvailableDef, ("laneId", laneId));
+    public static ApiException RouteLanesNotConnected(string origin, string destination) =>
+        Create(RouteLanesNotConnectedDef, ("origin", origin), ("destination", destination));
     public static ApiException RouteNotFound(string origin, string destination, object objective) =>
         Create(RouteNotFoundDef, ("origin", origin), ("destination", destination), ("objective", objective.ToString()));
 

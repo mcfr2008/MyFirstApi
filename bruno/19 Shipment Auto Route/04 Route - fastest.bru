@@ -1,0 +1,43 @@
+meta {
+  name: Route - fastest
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{arShipmentId}}/route
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "objective": "Fastest"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.shipment.legs.length: eq 6
+  res.body.shipment.legs[0].mode: eq "Courier"
+  res.body.shipment.legs[0].origin.id: eq {{arSenderLocId}}
+  res.body.shipment.legs[0].destination.id: eq {{rpBnaId}}
+  res.body.shipment.legs[0].plannedDeparture: eq "2026-10-02T06:00:00Z"
+  res.body.shipment.legs[0].plannedArrival: eq "2026-10-02T08:00:00Z"
+  res.body.shipment.legs[2].destination.id: eq {{rpPlkId}}
+  res.body.shipment.legs[2].plannedDeparture: eq "2026-10-02T13:00:00Z"
+  res.body.shipment.legs[5].mode: eq "Courier"
+  res.body.shipment.legs[5].destination.id: eq {{rpCustId}}
+  res.body.shipment.legs[5].plannedArrival: eq "2026-10-03T08:10:00Z"
+  res.body.plan.best.arrivalAt: eq "2026-10-03T04:10:00Z"
+  res.body.plan.alternatives.length: eq 1
+}
+
+script:post-response {
+  bru.setVar("arFirstLegId", res.body.shipment.legs[0].id);
+  bru.setVar("arRailLaneIds", JSON.stringify(res.body.plan.alternatives[0].legs.map(l => l.lane.id)));
+}
+
+docs {
+  Pickup 13:00 -> Bangna 15:00 -> Lat Krabang -> Phitsanulok -> Chiang Mai hub (Sat 10:30) -> branch 11:10 -> customer 15:10 (4 h last mile).
+}
