@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > Thing-Tag คือระบบติดตามอัจฉริยะที่ออกแบบมาเพื่อเกาะติดทุกการเคลื่อนไหวของสิ่งของทุกประเภท ตั้งแต่ต้นทางจนถึงปลายทางอย่างไร้รอยต่อ มอบประสบการณ์การขนส่งที่โปร่งใสและตรวจสอบได้จริง เหมือนกับระบบโลจิสติกส์มาตรฐานระดับสากล
 
-Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; carbon footprint; and route planning. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
+Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; carbon footprint; route planning; and misroute detection. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
 
 ## Commands
 
@@ -94,7 +94,21 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
   - **Saving.** Legs replace the existing ones through `ApplyLegsAsync`: in place by sequence, with the same chain and transport rules.
   - It returns `ShipmentRouteResponse { shipment, plan }`.
   - The lane a leg came from isn't stored, because legs keep only origin/destination/mode/carrier.
-- **Next phases.** Misroute detection (a scan at a location that isn't on the planned legs) will build on this. Don't build it until the user asks.
+- **Misroute detection** (`Scripts/034`).
+  - **Flagging.** `TrackingEventRecorder.FindOffRouteShipmentsAsync` sets `TrackingEvent.OffRouteShipmentId` at record time when all of these hold:
+    - the event has a location and no `ShipmentId` (events from shipment operations aren't checked);
+    - the item is in an open (Planned/InTransit) shipment that has legs;
+    - the location isn't the shipment's origin, its destination, or any leg's origin or destination.
+  - The column is written once and never updated, like the rest of the event.
+  - **Responses.**
+    - Single, scan and correct responses carry `offRouteShipment`.
+    - `EventsRecordedResponse.OffRouteEvents` counts flagged events, for container scans.
+    - `GET /TrackingEvents?offRoute=` filters on the flag.
+  - **"Off route now"** lives in `ShipmentService.RouteCheck.cs`: an item's current location equals a non-voided flagged scan location that is still not on the route.
+    - So scanning back on route, re-routing, or voiding the scan clears it.
+    - Items that were elsewhere before joining the shipment have no flag and don't count.
+    - Used by `GET /Shipments/{id}/route-check` and `GET /Shipments?offRoute=true`. The latter is `MisroutedShipmentIds()`, which starts from the partial index on `OffRouteShipmentId`.
+  - **Not alerted yet.** Off-route scans aren't pushed anywhere. Notifications would be a separate feature.
 
 ### Tracking model (the core of Thing-Tag)
 

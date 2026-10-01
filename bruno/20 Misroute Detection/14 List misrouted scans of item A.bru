@@ -1,0 +1,23 @@
+meta {
+  name: List misrouted scans of item A
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/TrackingEvents?offRoute=true&trackedItemId={{mdItemAId}}&includeTotalCount=true
+  body: none
+  auth: inherit
+}
+
+params:query {
+  offRoute: true
+  trackedItemId: {{mdItemAId}}
+  includeTotalCount: true
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 1
+  res.body.items[0].location.id: eq {{rpNsnId}}
+}

@@ -47,6 +47,9 @@ public class TrackingEventService : ITrackingEventService
         Reason = e.ReasonCode == null
             ? null
             : new ReasonSummary(e.ReasonCode.Id, e.ReasonCode.Code, e.ReasonCode.NameTh, e.ReasonCode.NameEn),
+        OffRouteShipment = e.OffRouteShipment == null
+            ? null
+            : new ReferenceSummary(e.OffRouteShipment.Id, e.OffRouteShipment.TrackingNumber, e.OffRouteShipment.TrackingNumber),
         IsSystemManaged = e.IsSystemManaged,
         IsVoided = e.IsVoided,
         VoidedAt = e.VoidedAt,
@@ -96,6 +99,12 @@ public class TrackingEventService : ITrackingEventService
         {
             var code = QueryHelpers.NormalizeCode(query.EventTypeCode);
             events = events.Where(e => e.EventType.Code == code);
+        }
+        if (query.OffRoute.HasValue)
+        {
+            events = query.OffRoute.Value
+                ? events.Where(e => e.OffRouteShipmentId != null)
+                : events.Where(e => e.OffRouteShipmentId == null);
         }
         if (!string.IsNullOrWhiteSpace(query.ReasonCode))
         {

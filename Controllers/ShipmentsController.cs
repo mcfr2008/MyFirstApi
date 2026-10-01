@@ -94,6 +94,16 @@ public class ShipmentsController : ControllerBase
         return Ok(result);
     }
 
+    // Misroute check: route points, items currently off the route, and misrouted scans.
+    [HttpGet("{id:int}/route-check")]
+    public async Task<IActionResult> GetRouteCheck(int id)
+    {
+        var check = await _shipmentService.GetRouteCheckAsync(id);
+        if (check == null) return NotFound();
+
+        return Ok(check);
+    }
+
     [HttpGet("{id:int}/items")]
     public async Task<IActionResult> GetItems(int id)
     {

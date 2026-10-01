@@ -1,0 +1,26 @@
+meta {
+  name: Scan A at Lat Krabang - on route
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents/scan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": [
+      "{{mdItemA}}"
+    ],
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{rpLkbId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.events[0].offRouteShipment: isNull
+}

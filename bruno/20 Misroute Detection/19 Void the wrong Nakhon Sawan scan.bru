@@ -1,0 +1,21 @@
+meta {
+  name: Void the wrong Nakhon Sawan scan
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents/{{mdOffRouteEventId}}/void
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reason": "Scanned with the wrong hub selected"
+  }
+}
+
+assert {
+  res.status: eq 200
+}

@@ -101,6 +101,13 @@ public partial class ShipmentService : IShipmentService
         {
             shipments = shipments.Where(s => s.Legs.Any(l => l.Mode == query.Mode.Value));
         }
+        if (query.OffRoute.HasValue)
+        {
+            var misrouted = MisroutedShipmentIds();
+            shipments = query.OffRoute.Value
+                ? shipments.Where(s => misrouted.Contains(s.Id))
+                : shipments.Where(s => !misrouted.Contains(s.Id));
+        }
 
         var totalCount = await shipments.CountAsync();
         var pageIds = await shipments

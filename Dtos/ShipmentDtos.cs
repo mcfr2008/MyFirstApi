@@ -221,6 +221,8 @@ public class ShipmentQuery : PagedQuery
     public int? DestinationLocationId { get; set; }
     // Shipments with at least one leg of this mode.
     public TransportMode? Mode { get; set; }
+    // true = open shipments with an item currently at a location off their route (misrouted).
+    public bool? OffRoute { get; set; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<LegStatus>))]
@@ -389,4 +391,36 @@ public class ShipmentRouteResponse
     public ShipmentResponse Shipment { get; set; } = null!;
     // The station-to-station plan the lane legs came from.
     public RoutePlanResponse Plan { get; set; } = null!;
+}
+
+// GET /Shipments/{id}/route-check: the planned route and any misrouted scans.
+public class ShipmentRouteCheckResponse
+{
+    public int ShipmentId { get; set; }
+    public string TrackingNumber { get; set; } = string.Empty;
+    public ShipmentStatus Status { get; set; }
+    // An item is currently at a location off the route (see ItemsOffRoute).
+    public bool IsOffRoute { get; set; }
+    // Origin, then each leg's destination in order.
+    public List<ReferenceSummary> RoutePoints { get; set; } = new();
+    public List<OffRouteItemResponse> ItemsOffRoute { get; set; } = new();
+    // Every non-voided misrouted scan of this shipment, newest first (history).
+    public List<OffRouteEventResponse> OffRouteEvents { get; set; } = new();
+}
+
+public class OffRouteItemResponse
+{
+    public ReferenceSummary Item { get; set; } = null!;
+    public ReferenceSummary CurrentLocation { get; set; } = null!;
+    // When it was scanned there.
+    public DateTime Since { get; set; }
+}
+
+public class OffRouteEventResponse
+{
+    public long EventId { get; set; }
+    public DateTime OccurredAt { get; set; }
+    public ReferenceSummary Item { get; set; } = null!;
+    public ReferenceSummary Location { get; set; } = null!;
+    public string EventTypeCode { get; set; } = string.Empty;
 }

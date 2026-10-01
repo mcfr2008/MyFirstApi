@@ -1,0 +1,21 @@
+meta {
+  name: List misrouted shipments
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments?offRoute=true&search={{mdTrackingNumber}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  offRoute: true
+  search: {{mdTrackingNumber}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 1
+}

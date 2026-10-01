@@ -43,6 +43,11 @@ public class TrackingEvent
     public int? ReasonCodeId { get; set; }
     public ReasonCode? ReasonCode { get; set; }
 
+    // Misroute: the open shipment whose route doesn't include this event's location.
+    // Set at record time (TrackingEventRecorder); null = on route or not checked.
+    public int? OffRouteShipmentId { get; set; }
+    public Shipment? OffRouteShipment { get; set; }
+
     // Recorded by a shipment/container operation (leg departure, customs,
     // delivery, load/unload). Can't be voided directly - undo the operation instead.
     public bool IsSystemManaged { get; set; }

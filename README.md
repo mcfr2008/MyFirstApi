@@ -47,6 +47,7 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
   - Give a start and an end (address or location) and the API finds the **fastest**, **shortest** or **lowest-emission** route through the lane network.
   - The ETA counts the wait for each truck, train or vessel's next scheduled departure. The API also suggests alternative routes.
   - **Auto-route a shipment.** One call plans the route and fills in the shipment's legs, including first-mile pickup and last-mile delivery.
+  - **Misroute detection.** A scan at a hub that isn't on the shipment's route is flagged right away in the scan response, and misrouted shipments can be listed.
 - **Carbon footprint (CO₂e)**
   - Every shipment's greenhouse-gas emissions per leg and in total, following **ISO 14083 / GLEC Framework** (well-to-wheel). The public tracking page shows the total.
 - **Safe retries (idempotency keys)**
@@ -122,7 +123,7 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
 | Containers | master-data endpoints (below) + `GET /{id}/contents` · `POST /{id}/load` · `/unload` · `/scan` |
 | Shipments | `GET/POST /api/v1/Shipments` · `GET/PUT /{id}` · `GET /by-tracking/{no}` · `PUT /{id}/legs/{legId}` · `POST /{id}/legs/{legId}/depart` · `/arrive` · `GET/POST /{id}/items` · `DELETE /{id}/items/{itemId}` · `POST /{id}/customs` · `/events` · `/deliver` · `/cancel` |
 | Proof of delivery | `POST /api/v1/Shipments/{id}/proof-of-delivery` (multipart) · `GET /api/v1/Shipments/{id}/proof-of-delivery` |
-| Route planning | `POST /api/v1/Routes/plan` · `POST /api/v1/Shipments/{id}/route` |
+| Route planning | `POST /api/v1/Routes/plan` · `POST /api/v1/Shipments/{id}/route` · `GET /api/v1/Shipments/{id}/route-check` · `GET /api/v1/Shipments?offRoute=true` · `GET /api/v1/TrackingEvents?offRoute=true` |
 | Carbon footprint | `GET /api/v1/Shipments/{id}/emissions` · master data `EmissionFactors` (below) |
 | Public tracking | `GET /api/v1/PublicTracking/{trackingNumber}` (no login, rate limited) |
 | Files | `GET /api/v1/Files/{id}` (signature / photo download, bearer token required) |
@@ -237,6 +238,25 @@ In one transaction, the API:
 - `404 ROUTE_ENDPOINT_NOT_COVERED`: no service area covers an end.
 - `404 ROUTE_NOT_FOUND`: no chain of active lanes connects the two ends.
 
+### Misroute detection
+
+When an item is scanned at a location that is **not on the route** of the open (Planned or InTransit) shipment it's in, the event is flagged with that shipment.
+- A route means the shipment's origin, destination and every leg's origin and destination. Shipments without legs aren't checked.
+- Events recorded by the shipment itself (depart, arrive, customs, deliver) follow the route by definition and aren't checked.
+
+| Where | What you get |
+|---|---|
+| Scan / record / correct responses | `offRouteShipment: { id, code: trackingNumber }` on the event, so the scanner can alert the hub immediately |
+| Container scan response | `offRouteEvents`: how many of the recorded events were off route |
+| `GET /api/v1/Shipments/{id}/route-check` | The route points, the items **currently** off route (since when, where), and every non-voided misrouted scan (history) |
+| `GET /api/v1/Shipments?offRoute=true` | Open shipments with an item **currently** at a flagged off-route location: the control-tower exception list |
+| `GET /api/v1/TrackingEvents?offRoute=true` | All misrouted scans (combine with `trackedItemId`, `locationId`, dates ...) |
+
+**Current state and history**
+- A shipment is off route *now* only while an item's current location is a flagged scan location that is still not on the route.
+- Scanning the item back on route clears it, and so does a re-route that adds that location. The flagged scan stays in the history.
+- Voiding a wrong scan removes it from both.
+
 ## Carbon footprint
 
 `GET /api/v1/Shipments/{id}/emissions` calculates the shipment's greenhouse-gas emissions with the **ISO 14083 / GLEC Framework** method (well-to-wheel CO₂e):
@@ -341,7 +361,7 @@ export Jwt__Key="<long-random-secret>"
 
 #### 3. Create the schema
 
-The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `033`). Re-running them only applies what's new.
+The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `034`). Re-running them only applies what's new.
 
 With `psql` installed on the host:
 
@@ -370,6 +390,7 @@ done
 | `031` | Service areas (postal code / province → station and hub) |
 | `032` | Lanes (scheduled one-way connections between network points) |
 | `033` | Emission factors (gCO₂e per tonne-km per mode / carrier) with indicative defaults |
+| `034` | `TrackingEvents.OffRouteShipmentId` (misroute flag) |
 
 #### 4. Run
 
@@ -413,7 +434,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (322 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (343 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -483,6 +504,7 @@ Before deploying beyond local development:
 - [x] Carbon footprint per shipment (ISO 14083 / GLEC, well-to-wheel)
 - [x] Route planner: fastest / shortest / lowest-emission routes with schedule-aware ETA and alternatives
 - [x] Auto-route a shipment: legs (first mile, lanes, last mile) generated from a plan
+- [x] Misroute detection: off-route scans flagged on record, route check and exception list
 - [ ] Route planning: auto-generated shipment legs, misroute detection
 - [ ] Automated tests, CI/CD, health checks
 

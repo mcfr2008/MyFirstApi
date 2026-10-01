@@ -1,0 +1,25 @@
+meta {
+  name: Create item B
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackedItems
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Misroute B {{runId}}"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("mdItemB", res.body.tagCode);
+}

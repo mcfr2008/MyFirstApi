@@ -1,0 +1,16 @@
+meta {
+  name: Route check - voided scan dropped
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/{{mdShipmentId}}/route-check
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.offRouteEvents.length: eq 1
+}

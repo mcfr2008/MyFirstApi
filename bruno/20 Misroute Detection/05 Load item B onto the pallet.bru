@@ -1,0 +1,23 @@
+meta {
+  name: Load item B onto the pallet
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Containers/{{mdPalletId}}/load
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": [
+      "{{mdItemB}}"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 200
+}

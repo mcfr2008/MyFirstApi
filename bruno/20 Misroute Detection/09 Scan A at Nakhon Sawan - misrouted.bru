@@ -1,0 +1,35 @@
+meta {
+  name: Scan A at Nakhon Sawan - misrouted
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents/scan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": [
+      "{{mdItemA}}"
+    ],
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{rpNsnId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.events[0].offRouteShipment.id: eq {{mdShipmentId}}
+  res.body.events[0].offRouteShipment.code: eq {{mdTrackingNumber}}
+}
+
+script:post-response {
+  bru.setVar("mdOffRouteEventId", res.body.events[0].id);
+}
+
+docs {
+  The scanner gets offRouteShipment back right away, so the hub can stop the parcel.
+}

@@ -1,0 +1,17 @@
+meta {
+  name: 20 Misroute Detection
+  seq: 20
+}
+
+auth {
+  mode: inherit
+}
+
+docs {
+  A scan at a location that isn't on the route of the item's open shipment is flagged
+  (offRouteShipment on the event). GET /Shipments/{id}/route-check and
+  GET /Shipments?offRoute=true show shipments that are misrouted now.
+
+  Uses the network from 18 Route Planning. The shipment is auto-routed via Phitsanulok,
+  then item A is scanned at Nakhon Sawan (off route), and so is a pallet holding item B.
+}

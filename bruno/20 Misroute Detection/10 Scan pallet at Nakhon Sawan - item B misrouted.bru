@@ -1,0 +1,24 @@
+meta {
+  name: Scan pallet at Nakhon Sawan - item B misrouted
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Containers/{{mdPalletId}}/scan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{rpNsnId}}
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.eventsRecorded: eq 1
+  res.body.offRouteEvents: eq 1
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Scan item C at Nakhon Sawan - no shipment, not flagged
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents/scan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": [
+      "{{mdItemC}}"
+    ],
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{rpNsnId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.events[0].offRouteShipment: isNull
+}

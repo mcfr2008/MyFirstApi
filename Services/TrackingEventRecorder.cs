@@ -103,6 +103,7 @@ public class TrackingEventRecorder : ITrackingEventRecorder
         await ReferenceResolver.ResolveAsync(_context.Locations.AsNoTracking(), context.LocationId, null, "locationId");
         var reason = await ResolveReasonAsync(eventType, context);
 
+        var offRoute = await FindOffRouteShipmentsAsync(items, context);
         var now = DateTime.UtcNow;
         var events = new List<TrackingEvent>(items.Count);
 
@@ -125,7 +126,8 @@ public class TrackingEventRecorder : ITrackingEventRecorder
                 Longitude = context.Longitude,
                 ShipmentId = context.ShipmentId,
                 ShipmentLegId = context.ShipmentLegId,
-                ContainerId = context.ContainerId
+                ContainerId = context.ContainerId,
+                OffRouteShipmentId = offRoute.GetValueOrDefault(item.Id)
             };
             events.Add(trackingEvent);
             ApplyToItem(item, eventType, context, now);
@@ -164,6 +166,41 @@ public class TrackingEventRecorder : ITrackingEventRecorder
                                  ?? item.CurrentLocationId;
         item.LastEventAt = timeline.Count > 0 ? timeline[^1].Event.OccurredAt : null;
         item.UpdatedAt = DateTime.UtcNow;
+    }
+
+    // Misroute check: for items in an open (Planned / InTransit) shipment that has legs,
+    // the item -> shipment id where the event's location isn't on that shipment's route
+    // (its origin, destination, or any leg's origin / destination). Events recorded by a
+    // shipment operation follow its route by definition and aren't checked.
+    private async Task<Dictionary<int, int?>> FindOffRouteShipmentsAsync(
+        IReadOnlyCollection<TrackedItem> items, EventContext context)
+    {
+        var result = new Dictionary<int, int?>();
+        if (context.LocationId == null || context.ShipmentId != null) return result;
+
+        var itemIds = items.Where(i => i.Id != 0).Select(i => i.Id).ToList();
+        if (itemIds.Count == 0) return result;
+
+        var location = context.LocationId.Value;
+        var memberships = await _context.ShipmentItems.AsNoTracking()
+            .Where(si => itemIds.Contains(si.TrackedItemId) &&
+                         (si.Shipment.Status == ShipmentStatus.Planned || si.Shipment.Status == ShipmentStatus.InTransit) &&
+                         si.Shipment.Legs.Any())
+            .Select(si => new
+            {
+                si.TrackedItemId,
+                si.ShipmentId,
+                OnRoute = si.Shipment.OriginLocationId == location ||
+                          si.Shipment.DestinationLocationId == location ||
+                          si.Shipment.Legs.Any(l => l.OriginLocationId == location || l.DestinationLocationId == location)
+            })
+            .ToListAsync();
+
+        foreach (var membership in memberships.Where(m => !m.OnRoute))
+        {
+            result[membership.TrackedItemId] = membership.ShipmentId;
+        }
+        return result;
     }
 
     private async Task<ReasonCode?> ResolveReasonAsync(EventType eventType, EventContext context)

@@ -1,0 +1,27 @@
+meta {
+  name: Create pallet at Lat Krabang
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Containers
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "MD-PAL-{{runId}}",
+    "type": "Pallet",
+    "currentLocationId": {{rpLkbId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("mdPalletId", res.body.id);
+}

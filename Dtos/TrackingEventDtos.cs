@@ -85,6 +85,9 @@ public class TrackingEventQuery
 
     public string? ReasonCode { get; set; }
 
+    // true = only misrouted scans (off their open shipment's route).
+    public bool? OffRoute { get; set; }
+
     // true = timeline order (oldest first); default is newest first.
     public bool OldestFirst { get; set; }
 
@@ -166,6 +169,8 @@ public class TrackingEventResponse
     public int? ShipmentLegId { get; set; }
     public ReferenceSummary? Container { get; set; }
     public ReasonSummary? Reason { get; set; }
+    // Set when the location isn't on the route of the open shipment the item is in (misroute).
+    public ReferenceSummary? OffRouteShipment { get; set; }
     public bool IsSystemManaged { get; set; }
     public bool IsVoided { get; set; }
     public DateTime? VoidedAt { get; set; }
@@ -178,4 +183,5 @@ public class TrackingEventResponse
 public record CorrectEventResponse(TrackingEventResponse Voided, TrackingEventResponse Replacement);
 
 // Returned by operations that record the same event for many items.
-public record EventsRecordedResponse(string EventTypeCode, int EventsRecorded);
+// OffRouteEvents: how many of them were misrouted (see TrackingEventResponse.OffRouteShipment).
+public record EventsRecordedResponse(string EventTypeCode, int EventsRecorded, int OffRouteEvents = 0);
