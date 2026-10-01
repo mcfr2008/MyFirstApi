@@ -1,0 +1,30 @@
+meta {
+  name: Lane LKB-NSN
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-LKB-NSN-{{runId}}",
+    "name": "RP LKB-NSN",
+    "originLocationId": {{rpLkbId}},
+    "destinationLocationId": {{rpNsnId}},
+    "mode": "Road",
+    "transitTimeMinutes": 240,
+    "distanceKm": 240,
+    "departureTimes": [
+      "22:00"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+}

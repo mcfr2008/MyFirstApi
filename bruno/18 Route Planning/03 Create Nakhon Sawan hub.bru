@@ -1,0 +1,30 @@
+meta {
+  name: Create Nakhon Sawan hub
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-NSN-{{runId}}",
+    "name": "Nakhon Sawan hub",
+    "type": "Hub",
+    "province": "นครสวรรค์",
+    "country": "TH",
+    "timeZone": "Asia/Bangkok"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("rpNsnId", res.body.id);
+}

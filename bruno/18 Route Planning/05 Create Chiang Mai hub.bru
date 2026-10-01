@@ -1,0 +1,30 @@
+meta {
+  name: Create Chiang Mai hub
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-CNXH-{{runId}}",
+    "name": "Chiang Mai hub",
+    "type": "Hub",
+    "province": "เชียงใหม่ RP-{{runId}}",
+    "country": "TH",
+    "timeZone": "Asia/Bangkok"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("rpCnxHubId", res.body.id);
+}

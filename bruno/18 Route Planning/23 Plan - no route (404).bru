@@ -1,0 +1,28 @@
+meta {
+  name: Plan - no route (404)
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Routes/plan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "origin": {
+      "locationId": {{rpLkbId}}
+    },
+    "destination": {
+      "locationId": {{rpIsoId}}
+    }
+  }
+}
+
+assert {
+  res.status: eq 404
+  res.body.code: eq "ROUTE_NOT_FOUND"
+  res.body.args.destination: eq RP-ISO-{{runId}}
+}

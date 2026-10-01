@@ -1,0 +1,28 @@
+meta {
+  name: Plan - destination not covered (404)
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Routes/plan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "origin": {
+      "province": "กรุงเทพ RP-{{runId}}"
+    },
+    "destination": {
+      "province": "Nowhere {{runId}}"
+    }
+  }
+}
+
+assert {
+  res.status: eq 404
+  res.body.code: eq "ROUTE_ENDPOINT_NOT_COVERED"
+  res.body.args.end: eq "destination"
+}

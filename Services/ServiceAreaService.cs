@@ -131,6 +131,16 @@ public class ServiceAreaService
             province = QueryHelpers.NullIfBlank(location.Province);
         }
 
+        return await FindAsync(country, postalCode, province)
+               ?? throw Errors.ServiceAreaNotCovered(Coverage(country, postalCode, province));
+    }
+
+    public async Task<ServiceAreaResolveResponse?> FindAsync(string country, string? postalCode, string? province)
+    {
+        country = country.Trim().ToUpperInvariant();
+        postalCode = NormalizePostalCode(postalCode);
+        province = QueryHelpers.NullIfBlank(province);
+
         var active = Set.AsNoTracking().Where(a => a.IsActive && a.Country == country);
         if (postalCode != null)
         {
@@ -151,8 +161,7 @@ public class ServiceAreaService
                 return new ServiceAreaResolveResponse { MatchedBy = ServiceAreaMatch.Province, ServiceArea = byProvince };
             }
         }
-
-        throw Errors.ServiceAreaNotCovered(Coverage(country, postalCode, province));
+        return null;
     }
 
     private static void EnsureType(Location location, LocationType[] allowed, string field)
@@ -167,6 +176,6 @@ public class ServiceAreaService
         QueryHelpers.NullIfBlank(postalCode)?.ToUpperInvariant();
 
     // e.g. "TH 50200 เชียงใหม่" for error messages.
-    private static string Coverage(string country, string? postalCode, string? province) =>
+    public static string Coverage(string country, string? postalCode, string? province) =>
         string.Join(" ", new[] { country, postalCode, province }.Where(p => p != null));
 }

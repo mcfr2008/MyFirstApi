@@ -1,0 +1,35 @@
+meta {
+  name: Plan lowest emissions
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Routes/plan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "origin": {
+      "province": "กรุงเทพ RP-{{runId}}"
+    },
+    "destination": {
+      "province": "เชียงใหม่ RP-{{runId}}"
+    },
+    "readyAt": "2026-10-02T15:00:00+07:00",
+    "objective": "LowestEmissions"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.best.legs[1].mode: eq "Rail"
+  res.body.best.co2eKgPerTonne: eq 27.25
+  res.body.best.arrivalAt: eq "2026-10-03T05:40:00Z"
+}
+
+docs {
+  Rail at 25 g/tkm: 2.5 + 18.75 + 6 (courier) = 27.25 kg CO2e per tonne.
+}

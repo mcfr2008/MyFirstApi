@@ -1,0 +1,27 @@
+meta {
+  name: Lane BNA-LKB
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-BNA-LKB-{{runId}}",
+    "name": "RP BNA-LKB",
+    "originLocationId": {{rpBnaId}},
+    "destinationLocationId": {{rpLkbId}},
+    "mode": "Road",
+    "transitTimeMinutes": 60,
+    "distanceKm": 25
+  }
+}
+
+assert {
+  res.status: eq 201
+}

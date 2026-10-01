@@ -1,0 +1,36 @@
+meta {
+  name: Lane NSN-CNX
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-NSN-CNX-{{runId}}",
+    "name": "RP NSN-CNX",
+    "originLocationId": {{rpNsnId}},
+    "destinationLocationId": {{rpCnxHubId}},
+    "mode": "Road",
+    "transitTimeMinutes": 300,
+    "distanceKm": 330,
+    "departureTimes": [
+      "03:00"
+    ],
+    "operatingDays": [
+      "Monday",
+      "Wednesday",
+      "Friday",
+      "Sunday"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+}

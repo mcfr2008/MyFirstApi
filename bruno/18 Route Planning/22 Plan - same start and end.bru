@@ -1,0 +1,29 @@
+meta {
+  name: Plan - same start and end
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Routes/plan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "origin": {
+      "locationId": {{rpLkbId}}
+    },
+    "destination": {
+      "locationId": {{rpLkbId}}
+    },
+    "readyAt": "2026-10-02T15:00:00+07:00"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.best.legs.length: eq 0
+  res.body.best.totalMinutes: eq 0
+}

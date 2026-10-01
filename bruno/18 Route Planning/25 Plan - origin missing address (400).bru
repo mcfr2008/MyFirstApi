@@ -1,0 +1,25 @@
+meta {
+  name: Plan - origin missing address (400)
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Routes/plan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "origin": {},
+    "destination": {
+      "province": "เชียงใหม่ RP-{{runId}}"
+    }
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "VALIDATION_FAILED"
+}

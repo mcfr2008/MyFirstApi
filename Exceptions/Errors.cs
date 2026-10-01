@@ -96,6 +96,11 @@ public static class Errors
         "{mode} {carrier} already has emission factor {emissionFactor}.", "{mode} {carrier} มีค่าการปล่อยก๊าซ {emissionFactor} อยู่แล้ว");
 
     // --------------------------------------------------------- service areas
+    public static readonly ErrorDefinition RouteEndpointNotCoveredDef = new("ROUTE_ENDPOINT_NOT_COVERED", StatusCodes.Status404NotFound,
+        "No active service area covers the {end} ({coverage}).", "ไม่มีพื้นที่ให้บริการที่เปิดใช้งานครอบคลุมจุด {end} ({coverage})");
+    public static readonly ErrorDefinition RouteNotFoundDef = new("ROUTE_NOT_FOUND", StatusCodes.Status404NotFound,
+        "No route from {origin} to {destination} over active lanes (objective: {objective}).",
+        "ไม่พบเส้นทางจาก {origin} ไป {destination} ด้วย lanes ที่เปิดใช้งาน (เกณฑ์: {objective})");
     public static readonly ErrorDefinition ServiceAreaOverlapDef = new("SERVICE_AREA_OVERLAP", Conflict,
         "{coverage} is already covered by service area {serviceArea}.", "พื้นที่ {coverage} มีพื้นที่ให้บริการ {serviceArea} ดูแลอยู่แล้ว");
     public static readonly ErrorDefinition ServiceAreaNotCoveredDef = new("SERVICE_AREA_NOT_COVERED", StatusCodes.Status404NotFound,
@@ -236,6 +241,11 @@ public static class Errors
 
     public static ApiException EmissionFactorOverlap(object mode, string? carrier, string emissionFactor) =>
         Create(EmissionFactorOverlapDef, ("mode", mode.ToString()), ("carrier", carrier ?? "(default)"), ("emissionFactor", emissionFactor));
+
+    public static ApiException RouteEndpointNotCovered(string end, string coverage) =>
+        Create(RouteEndpointNotCoveredDef, ("end", end), ("coverage", coverage));
+    public static ApiException RouteNotFound(string origin, string destination, object objective) =>
+        Create(RouteNotFoundDef, ("origin", origin), ("destination", destination), ("objective", objective.ToString()));
 
     public static ApiException ServiceAreaOverlap(string coverage, string serviceArea) =>
         Create(ServiceAreaOverlapDef, ("coverage", coverage), ("serviceArea", serviceArea));
