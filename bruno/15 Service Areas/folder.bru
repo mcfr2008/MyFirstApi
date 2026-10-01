@@ -1,0 +1,17 @@
+meta {
+  name: 15 Service Areas
+  seq: 15
+}
+
+auth {
+  mode: inherit
+}
+
+docs {
+  Which station (branch) and sorting hub serve an address. An area is one postal code or a whole
+  province; resolving tries the postal code first, then the province.
+
+  Postal codes and the province name are generated per run (`saPostalCode`, `saOtherPostalCode`,
+  `saProvince`), because a postal code can belong to only one area and the collection is re-run
+  against the same database.
+}

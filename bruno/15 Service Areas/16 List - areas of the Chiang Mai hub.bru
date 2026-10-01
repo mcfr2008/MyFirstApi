@@ -1,0 +1,20 @@
+meta {
+  name: List - areas of the Chiang Mai hub
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/api/v1/ServiceAreas?hubLocationId={{saCnxHubId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  hubLocationId: {{saCnxHubId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 2
+}

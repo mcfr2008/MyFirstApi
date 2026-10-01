@@ -1,0 +1,27 @@
+meta {
+  name: Create - province already covered (409)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/ServiceAreas
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CNX-PROV2-{{runId}}",
+    "name": "Duplicate",
+    "country": "TH",
+    "province": "{{saProvince}}",
+    "stationLocationId": {{saCnxBranchId}},
+    "hubLocationId": {{saCnxHubId}}
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "SERVICE_AREA_OVERLAP"
+}

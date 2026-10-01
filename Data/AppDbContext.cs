@@ -20,6 +20,7 @@ public class AppDbContext : DbContext
     public DbSet<EventType> EventTypes { get; set; }
     public DbSet<Carrier> Carriers { get; set; }
     public DbSet<Vehicle> Vehicles { get; set; }
+    public DbSet<ServiceArea> ServiceAreas { get; set; }
     public DbSet<Container> Containers { get; set; }
     public DbSet<TrackingEvent> TrackingEvents { get; set; }
     public DbSet<Shipment> Shipments { get; set; }
@@ -94,6 +95,15 @@ public class AppDbContext : DbContext
             entity.Property(v => v.Mode).HasConversion<string>();
             entity.HasOne(v => v.Carrier).WithMany()
                 .HasForeignKey(v => v.CarrierId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ServiceArea>(entity =>
+        {
+            entity.HasIndex(a => a.Code).IsUnique();
+            entity.HasOne(a => a.StationLocation).WithMany()
+                .HasForeignKey(a => a.StationLocationId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(a => a.HubLocation).WithMany()
+                .HasForeignKey(a => a.HubLocationId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Container>(entity =>

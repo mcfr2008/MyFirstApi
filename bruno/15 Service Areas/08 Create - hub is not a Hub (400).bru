@@ -1,0 +1,28 @@
+meta {
+  name: Create - hub is not a Hub (400)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/ServiceAreas
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CNX-BAD-{{runId}}",
+    "name": "Bad hub",
+    "country": "TH",
+    "postalCode": "{{saOtherPostalCode}}",
+    "stationLocationId": {{saCnxBranchId}},
+    "hubLocationId": {{saCnxBranchId}}
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "LOCATION_TYPE_NOT_ALLOWED"
+  res.body.args.field: eq "hubLocationId"
+}

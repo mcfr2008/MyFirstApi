@@ -1,0 +1,35 @@
+meta {
+  name: Create area - whole province
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/ServiceAreas
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CNX-PROV-{{runId}}",
+    "name": "เชียงใหม่ (ทั้งจังหวัด)",
+    "country": "TH",
+    "province": "{{saProvince}}",
+    "stationLocationId": {{saCnxHubId}},
+    "hubLocationId": {{saCnxHubId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.postalCode: isNull
+}
+
+script:post-response {
+  bru.setVar("saProvinceAreaId", res.body.id);
+}
+
+docs {
+  No postal code: covers every address in the province that has no postal-code area. A hub can serve as its own station.
+}

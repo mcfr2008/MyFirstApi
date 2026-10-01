@@ -1,0 +1,23 @@
+meta {
+  name: Resolve by postal code
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/v1/ServiceAreas/resolve?postalCode={{saPostalCode}}&province={{saProvince}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  postalCode: {{saPostalCode}}
+  province: {{saProvince}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.matchedBy: eq "PostalCode"
+  res.body.serviceArea.station.id: eq {{saCnxBranchId}}
+  res.body.serviceArea.hub.id: eq {{saCnxHubId}}
+}

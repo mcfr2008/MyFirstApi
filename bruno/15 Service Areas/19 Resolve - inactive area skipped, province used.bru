@@ -1,0 +1,21 @@
+meta {
+  name: Resolve - inactive area skipped, province used
+  type: http
+  seq: 19
+}
+
+get {
+  url: {{baseUrl}}/api/v1/ServiceAreas/resolve?postalCode={{saPostalCode}}&province={{saProvince}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  postalCode: {{saPostalCode}}
+  province: {{saProvince}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.matchedBy: eq "Province"
+}

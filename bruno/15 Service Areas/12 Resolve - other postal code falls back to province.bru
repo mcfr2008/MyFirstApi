@@ -1,0 +1,22 @@
+meta {
+  name: Resolve - other postal code falls back to province
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/api/v1/ServiceAreas/resolve?postalCode={{saOtherPostalCode}}&province={{saProvince}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  postalCode: {{saOtherPostalCode}}
+  province: {{saProvince}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.matchedBy: eq "Province"
+  res.body.serviceArea.id: eq {{saProvinceAreaId}}
+}

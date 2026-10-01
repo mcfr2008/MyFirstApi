@@ -1,0 +1,31 @@
+meta {
+  name: Create Chiang Mai branch
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "SA-CNX-BR-{{runId}}",
+    "name": "สาขาเมืองเชียงใหม่",
+    "type": "Branch",
+    "province": "{{saProvince}}",
+    "postalCode": "{{saPostalCode}}",
+    "country": "TH",
+    "timeZone": "Asia/Bangkok"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("saCnxBranchId", res.body.id);
+}

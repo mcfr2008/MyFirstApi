@@ -1,0 +1,16 @@
+meta {
+  name: Resolve - no address (400)
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/v1/ServiceAreas/resolve
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "VALIDATION_FAILED"
+}

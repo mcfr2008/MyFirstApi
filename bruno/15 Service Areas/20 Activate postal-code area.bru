@@ -1,0 +1,15 @@
+meta {
+  name: Activate postal-code area
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/v1/ServiceAreas/{{saPostalAreaId}}/activate
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}

@@ -1,0 +1,20 @@
+meta {
+  name: Resolve - not covered (404)
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/ServiceAreas/resolve?province=Nowhere {{runId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  province: Nowhere {{runId}}
+}
+
+assert {
+  res.status: eq 404
+  res.body.code: eq "SERVICE_AREA_NOT_COVERED"
+}

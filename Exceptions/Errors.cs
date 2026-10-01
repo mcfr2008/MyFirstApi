@@ -88,6 +88,15 @@ public static class Errors
         "Carrier {carrier} does not operate {mode} transport.", "ผู้ให้บริการ {carrier} ไม่ได้ให้บริการขนส่งแบบ {mode}");
     public static readonly ErrorDefinition ImoOnlyForSeaDef = new("IMO_ONLY_FOR_SEA", BadRequest,
         "ImoNumber applies to Sea vehicles (vessels) only.", "หมายเลข IMO ใช้ได้กับเรือเท่านั้น");
+    public static readonly ErrorDefinition LocationTypeNotAllowedDef = new("LOCATION_TYPE_NOT_ALLOWED", BadRequest,
+        "{field}: location {location} is a {type}; allowed types: {allowedTypes}.",
+        "{field}: สถานที่ {location} เป็นประเภท {type} ซึ่งใช้ไม่ได้ (ใช้ได้: {allowedTypes})");
+
+    // --------------------------------------------------------- service areas
+    public static readonly ErrorDefinition ServiceAreaOverlapDef = new("SERVICE_AREA_OVERLAP", Conflict,
+        "{coverage} is already covered by service area {serviceArea}.", "พื้นที่ {coverage} มีพื้นที่ให้บริการ {serviceArea} ดูแลอยู่แล้ว");
+    public static readonly ErrorDefinition ServiceAreaNotCoveredDef = new("SERVICE_AREA_NOT_COVERED", StatusCodes.Status404NotFound,
+        "No active service area covers {coverage}.", "ไม่มีพื้นที่ให้บริการที่เปิดใช้งานครอบคลุม {coverage}");
 
     // ------------------------------------------------------------ containers
     public static readonly ErrorDefinition InvalidIso6346Def = new("INVALID_ISO6346_CONTAINER_NUMBER", BadRequest,
@@ -218,6 +227,13 @@ public static class Errors
     public static ApiException CarrierModeNotSupported(string carrier, object mode) =>
         Create(CarrierModeNotSupportedDef, ("carrier", carrier), ("mode", mode.ToString()));
     public static ApiException ImoOnlyForSea() => Create(ImoOnlyForSeaDef);
+    public static ApiException LocationTypeNotAllowed(string field, string location, object type, IEnumerable<object> allowed) =>
+        Create(LocationTypeNotAllowedDef, ("field", field), ("location", location), ("type", type.ToString()),
+            ("allowedTypes", allowed.Select(a => a.ToString()!).ToList()));
+
+    public static ApiException ServiceAreaOverlap(string coverage, string serviceArea) =>
+        Create(ServiceAreaOverlapDef, ("coverage", coverage), ("serviceArea", serviceArea));
+    public static ApiException ServiceAreaNotCovered(string coverage) => Create(ServiceAreaNotCoveredDef, ("coverage", coverage));
 
     public static ApiException InvalidIso6346(string code) => Create(InvalidIso6346Def, ("code", code));
     public static ApiException ContainerInactive(string container) => Create(ContainerInactiveDef, ("container", container));

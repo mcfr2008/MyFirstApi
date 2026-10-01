@@ -1,0 +1,28 @@
+meta {
+  name: Create - invalid Thai postal code (400)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/ServiceAreas
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CNX-BAD2-{{runId}}",
+    "name": "Bad postal code",
+    "country": "TH",
+    "postalCode": "5020",
+    "stationLocationId": {{saCnxBranchId}},
+    "hubLocationId": {{saCnxHubId}}
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "VALIDATION_FAILED"
+  res.body.errors.PostalCode: isDefined
+}
