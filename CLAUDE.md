@@ -47,7 +47,7 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
 - **CORS.** Policy "Frontend" allows the origins in `Cors:AllowedOrigins` (dev servers are listed in `appsettings.Development.json`, and the list is empty in `appsettings.json`).
 - Enums are serialized as strings (`[JsonConverter(typeof(JsonStringEnumConverter<T>))]` on the enum) and stored as strings (`HasConversion<string>()`).
 - Lists are paged with `PagedResult<T>`. Items are archived (`IsArchived`) instead of deleted so tracking history survives.
-- **Master data** (`ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`) is built on shared generic bases: `Services/MasterDataService<...>` and `Controllers/MasterDataController<...>`.
+- **Master data** (`ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, `ServiceAreas`) is built on shared generic bases: `Services/MasterDataService<...>` and `Controllers/MasterDataController<...>`.
   - Each concrete service only defines its DbSet, projection, search, filters, order and `Apply`. Each concrete controller only adds `[Route]`.
   - Entities implement `Models/IMasterData`, and responses implement `IMasterDataResponse`.
   - Codes are unique and stored upper-case. `DELETE` deactivates (`IsActive=false`) instead of deleting.
@@ -56,6 +56,20 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
   - To add a new master table: add an entity, DTOs, a service, an interface, a controller, a SQL script, a DbSet and a DI registration.
 - `TrackedItem` optionally references `ItemCategory`, `Location` (`CurrentLocationId`), `Party` (owner) and `Container` (`CurrentContainerId`), all with FK `ON DELETE RESTRICT`. A category's `RequiredAttributes` keys must be present in the item's `Attributes`.
 - Timestamps are UTC `DateTime` stored as `timestamptz`. Request timestamps are `DateTimeOffset`, converted with `.UtcDateTime`. The current username comes from `ICurrentUser` (the JWT `sub` claim, which JwtBearer maps to `ClaimTypes.NameIdentifier`).
+
+### Service areas (route planning, phase 1)
+
+- **What a row is.** A `ServiceArea` maps one postal code, or a whole province (`PostalCode` null), to:
+  - a `StationLocationId`: the Branch, DropPoint, Hub or Warehouse that does pickup and delivery in the area;
+  - a `HubLocationId`: the sorting hub that station feeds, which must be of type Hub.
+  - A location of the wrong type gives `LOCATION_TYPE_NOT_ALLOWED`.
+- **No overlaps.** There is one area per (Country, PostalCode) and one province-wide area per (Country, lower(Province)). Inactive rows count too.
+  - Enforced by `ServiceAreaService.ValidateAsync` (`SERVICE_AREA_OVERLAP`) and by partial unique indexes in `Scripts/031`.
+- **Resolve.** `GET /api/v1/ServiceAreas/resolve` takes `postalCode`/`province`/`country`, or a `locationId` (which uses that location's address fields).
+  - It matches the active postal-code area first, then the active province-wide area (`matchedBy`), or returns `404 SERVICE_AREA_NOT_COVERED`.
+  - Province matching is case-insensitive equality, so the area's province must be spelled the same way as `Locations.Province` (the seed data uses Thai names).
+  - Thai postal codes must be 5 digits.
+- **Next phases.** Hub-to-hub lanes, the route planner and generating shipment legs will build on the station/hub that `resolve` returns. Don't build them until the user asks.
 
 ### Tracking model (the core of Thing-Tag)
 

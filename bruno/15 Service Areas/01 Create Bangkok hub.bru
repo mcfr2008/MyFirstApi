@@ -1,0 +1,42 @@
+meta {
+  name: Create Bangkok hub
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "SA-BKK-HUB-{{runId}}",
+    "name": "Hub ลาดกระบัง",
+    "type": "Hub",
+    "province": "กรุงเทพมหานคร",
+    "postalCode": "10520",
+    "country": "TH",
+    "timeZone": "Asia/Bangkok"
+  }
+}
+
+script:pre-request {
+  const n = Date.now();
+  bru.setVar("saPostalCode", String(50000 + (n % 50000)).padStart(5, "0"));
+  bru.setVar("saOtherPostalCode", String(50000 + ((n + 1) % 50000)).padStart(5, "0"));
+  bru.setVar("saProvince", "เชียงใหม่ " + bru.getVar("runId"));
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("saBkkHubId", res.body.id);
+}
+
+docs {
+  Also generates this run's postal codes and province name.
+}

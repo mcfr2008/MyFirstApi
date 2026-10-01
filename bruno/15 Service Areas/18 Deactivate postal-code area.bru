@@ -1,0 +1,15 @@
+meta {
+  name: Deactivate postal-code area
+  type: http
+  seq: 18
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/ServiceAreas/{{saPostalAreaId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 204
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Create - postal code already covered (409)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/ServiceAreas
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CNX-PC2-{{runId}}",
+    "name": "Duplicate",
+    "country": "TH",
+    "postalCode": "{{saPostalCode}}",
+    "stationLocationId": {{saCnxBranchId}},
+    "hubLocationId": {{saCnxHubId}}
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "SERVICE_AREA_OVERLAP"
+  res.body.args.serviceArea: eq CNX-PC-{{runId}}
+}

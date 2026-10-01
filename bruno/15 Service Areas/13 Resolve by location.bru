@@ -1,0 +1,25 @@
+meta {
+  name: Resolve by location
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/ServiceAreas/resolve?locationId={{saCnxBranchId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  locationId: {{saCnxBranchId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.matchedBy: eq "PostalCode"
+  res.body.serviceArea.id: eq {{saPostalAreaId}}
+}
+
+docs {
+  Uses the location's country, postal code and province.
+}

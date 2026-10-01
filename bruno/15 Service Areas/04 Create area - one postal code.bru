@@ -1,0 +1,34 @@
+meta {
+  name: Create area - one postal code
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/ServiceAreas
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CNX-PC-{{runId}}",
+    "name": "เมืองเชียงใหม่ {{saPostalCode}}",
+    "country": "TH",
+    "province": "{{saProvince}}",
+    "postalCode": "{{saPostalCode}}",
+    "stationLocationId": {{saCnxBranchId}},
+    "hubLocationId": {{saCnxHubId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.postalCode: eq "{{saPostalCode}}"
+  res.body.station.id: eq {{saCnxBranchId}}
+  res.body.hub.id: eq {{saCnxHubId}}
+}
+
+script:post-response {
+  bru.setVar("saPostalAreaId", res.body.id);
+}
