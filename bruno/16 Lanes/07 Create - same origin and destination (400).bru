@@ -1,0 +1,27 @@
+meta {
+  name: Create - same origin and destination (400)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "BAD-3-{{runId}}",
+    "name": "Loop",
+    "originLocationId": {{saCnxHubId}},
+    "destinationLocationId": {{saCnxHubId}},
+    "mode": "Road",
+    "transitTimeMinutes": 10
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.errors.DestinationLocationId: isDefined
+}

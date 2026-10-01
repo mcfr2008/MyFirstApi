@@ -665,7 +665,7 @@ public partial class ShipmentService : IShipmentService
             _context.Vehicles.AsNoTracking(), vehicleId, currentVehicleId, "vehicleId", scope);
         if (vehicle != null)
         {
-            if (!SameFamily(vehicle.Mode, mode))
+            if (!TransportModes.SameFamily(vehicle.Mode, mode))
             {
                 throw Errors.VehicleModeMismatch(vehicle.Code, vehicle.Mode, mode).In(scope);
             }
@@ -678,7 +678,7 @@ public partial class ShipmentService : IShipmentService
 
         var carrier = await ReferenceResolver.ResolveAsync(
             _context.Carriers.AsNoTracking(), carrierId, currentCarrierId, "carrierId", scope);
-        if (carrier != null && !carrier.Modes.Any(m => SameFamily(Enum.Parse<TransportMode>(m), mode)))
+        if (carrier != null && !carrier.Modes.Any(m => TransportModes.SameFamily(Enum.Parse<TransportMode>(m), mode)))
         {
             throw Errors.CarrierModeNotSupported(carrier.Code, mode).In(scope);
         }
@@ -686,7 +686,7 @@ public partial class ShipmentService : IShipmentService
         if (documentType.HasValue)
         {
             var expected = DefaultDocumentTypes[mode];
-            var roadFamily = SameFamily(mode, TransportMode.Road) &&
+            var roadFamily = TransportModes.SameFamily(mode, TransportMode.Road) &&
                              documentType is TransportDocumentType.RoadConsignmentNote or TransportDocumentType.CourierWaybill;
             if (documentType != expected && !roadFamily)
             {
@@ -700,12 +700,6 @@ public partial class ShipmentService : IShipmentService
 
         return (carrierId, documentType);
     }
-
-    // Road and Courier are interchangeable (a courier van is a road vehicle).
-    private static bool SameFamily(TransportMode a, TransportMode b) =>
-        a == b || (IsRoad(a) && IsRoad(b));
-
-    private static bool IsRoad(TransportMode mode) => mode is TransportMode.Road or TransportMode.Courier;
 
     private async Task<string> GenerateTrackingNumberAsync()
     {

@@ -24,6 +24,7 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
   - Locations: warehouses, hubs, ports, airports, rail stations, with UN/LOCODE, IATA code and time zone.
   - Parties, event types, reason codes, carriers, vehicles and containers.
   - **Service areas**: which station (branch) and sorting hub serve each postal code or province, and a lookup that finds them for any address. This is the first step of route planning.
+  - **Lanes**: one-way scheduled connections between network points (station → hub, hub → hub linehaul, port → port) with mode, carrier, transit time, distance, departure times and operating days. They are the building blocks of route planning.
 - **Tracking events**
   - An item's status and location change **only** through events: a single record or a bulk scan of many tags at once.
   - Full timelines per item.
@@ -118,7 +119,7 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
 | Public tracking | `GET /api/v1/PublicTracking/{trackingNumber}` (no login, rate limited) |
 | Files | `GET /api/v1/Files/{id}` (signature / photo download, bearer token required) |
 | Service areas | master-data endpoints (below) + `GET /api/v1/ServiceAreas/resolve?postalCode=&province=` or `?locationId=` |
-| Master data | `ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, `ServiceAreas`, each with `GET` (search, filters, paging) · `POST` · `GET/PUT /{id}` · `GET /by-code/{code}` · `DELETE /{id}` (deactivate) · `POST /{id}/activate` |
+| Master data | `ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, `ServiceAreas`, `Lanes`, each with `GET` (search, filters, paging) · `POST` · `GET/PUT /{id}` · `GET /by-code/{code}` · `DELETE /{id}` (deactivate) · `POST /{id}/activate` |
 | Legacy | `/api/v1/Products` CRUD (sample from before Thing-Tag) |
 
 **Conventions**
@@ -259,7 +260,7 @@ export Jwt__Key="<long-random-secret>"
 
 #### 3. Create the schema
 
-The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `031`). Re-running them only applies what's new.
+The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `032`). Re-running them only applies what's new.
 
 With `psql` installed on the host:
 
@@ -286,6 +287,7 @@ done
 | `029` | Proof of delivery: stored files, proofs, photos, `Shipments.RequiresSignature` |
 | `030` | Idempotency keys (stored responses for safe retries) |
 | `031` | Service areas (postal code / province → station and hub) |
+| `032` | Lanes (scheduled one-way connections between network points) |
 
 #### 4. Run
 
@@ -329,7 +331,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (249 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (266 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -395,7 +397,8 @@ Before deploying beyond local development:
 - [x] Idempotency keys for safe retries of scans and operations
 - [ ] Concurrency control and offline scanning (batch upload of queued scans)
 - [x] Route planning, phase 1: service areas (postal code / province → station and hub)
-- [ ] Route planning: hub-to-hub lanes, route planner, auto-generated shipment legs, misroute detection
+- [x] Route planning, phase 1: lanes (scheduled hub-to-hub connections)
+- [ ] Route planning: route planner, auto-generated shipment legs, misroute detection
 - [ ] Automated tests, CI/CD, health checks
 
 ## Contributing

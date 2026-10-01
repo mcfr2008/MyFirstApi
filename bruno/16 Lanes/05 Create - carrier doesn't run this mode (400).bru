@@ -1,0 +1,28 @@
+meta {
+  name: Create - carrier doesn't run this mode (400)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "BAD-1-{{runId}}",
+    "name": "Sea carrier on a road lane",
+    "originLocationId": {{saBkkHubId}},
+    "destinationLocationId": {{lnNsnHubId}},
+    "mode": "Road",
+    "carrierId": {{carrierId}},
+    "transitTimeMinutes": 240
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "CARRIER_MODE_NOT_SUPPORTED"
+}

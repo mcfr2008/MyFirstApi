@@ -1,0 +1,20 @@
+meta {
+  name: List - inactive lane hidden
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Lanes?locationId={{saCnxHubId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  locationId: {{saCnxHubId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 1
+}

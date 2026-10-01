@@ -1,0 +1,37 @@
+meta {
+  name: Create shuttle Chiang Mai hub - branch (on demand)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CNX-HUB-BR-{{runId}}",
+    "name": "Shuttle Hub เชียงใหม่ - สาขาเมือง",
+    "originLocationId": {{saCnxHubId}},
+    "destinationLocationId": {{saCnxBranchId}},
+    "mode": "Courier",
+    "transitTimeMinutes": 45,
+    "distanceKm": 12
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.carrier: isNull
+  res.body.departureTimes.length: eq 0
+}
+
+script:post-response {
+  bru.setVar("lnCnxShuttleId", res.body.id);
+}
+
+docs {
+  No departure times = leaves any time (on demand).
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Create Nakhon Sawan transit hub
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "LN-NSN-HUB-{{runId}}",
+    "name": "Hub นครสวรรค์",
+    "type": "Hub",
+    "province": "นครสวรรค์",
+    "postalCode": "60000",
+    "country": "TH",
+    "timeZone": "Asia/Bangkok"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("lnNsnHubId", res.body.id);
+}

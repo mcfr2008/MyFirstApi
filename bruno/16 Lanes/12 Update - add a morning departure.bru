@@ -1,0 +1,41 @@
+meta {
+  name: Update - add a morning departure
+  type: http
+  seq: 12
+}
+
+put {
+  url: {{baseUrl}}/api/v1/Lanes/{{lnCnxShuttleId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "CNX-HUB-BR-{{runId}}",
+    "name": "Shuttle Hub เชียงใหม่ - สาขาเมือง",
+    "originLocationId": {{saCnxHubId}},
+    "destinationLocationId": {{saCnxBranchId}},
+    "mode": "Courier",
+    "carrierId": {{roadCarrierId}},
+    "transitTimeMinutes": 40,
+    "distanceKm": 12,
+    "departureTimes": [
+      "07:30",
+      "13:00"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.transitTimeMinutes: eq 40
+  res.body.departureTimes.length: eq 2
+  res.body.departureTimes[0]: eq "07:30"
+  res.body.departureTimes[1]: eq "13:00"
+  res.body.carrier.id: eq {{roadCarrierId}}
+}
+
+docs {
+  A Road + Courier carrier can run a Courier lane.
+}

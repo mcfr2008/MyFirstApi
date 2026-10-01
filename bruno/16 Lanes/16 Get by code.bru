@@ -1,0 +1,20 @@
+meta {
+  name: Get by code
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Lanes/by-code/bkk-nsn-{{runId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{lnBkkNsnId}}
+}
+
+docs {
+  Codes are case-insensitive.
+}
