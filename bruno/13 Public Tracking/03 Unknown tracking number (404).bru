@@ -1,0 +1,16 @@
+meta {
+  name: Unknown tracking number (404)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/PublicTracking/NO-SUCH-NUMBER-{{runId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 404
+  res.body.code: eq "NOT_FOUND"
+}

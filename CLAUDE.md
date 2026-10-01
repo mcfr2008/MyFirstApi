@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > Thing-Tag คือระบบติดตามอัจฉริยะที่ออกแบบมาเพื่อเกาะติดทุกการเคลื่อนไหวของสิ่งของทุกประเภท ตั้งแต่ต้นทางจนถึงปลายทางอย่างไร้รอยต่อ มอบประสบการณ์การขนส่งที่โปร่งใสและตรวจสอบได้จริง เหมือนกับระบบโลจิสติกส์มาตรฐานระดับสากล
 
-Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; and multimodal shipments (road, rail, air, sea and courier legs, with customs). The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
+Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; and public tracking. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
 
 ## Commands
 
@@ -105,6 +105,21 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
   - `StoredFile.Id` is a random GUID used in `GET /api/v1/Files/{id}`, and `Sha256` is kept as tamper evidence and the ETag.
 - **JSON keys.** `ProofOfDelivery.RefusedItems` is jsonb with camelCase keys (`[JsonPropertyName]`), so SQL like `->>'reasonCode'` matches the API.
 
+### Public tracking
+
+- **Endpoint.** `GET /api/v1/PublicTracking/{trackingNumber}` (`PublicTrackingController`, `Services/PublicTrackingService.cs`, `Dtos/PublicTrackingDtos.cs`) is anonymous and read-only.
+- **Separate DTOs on purpose.** Never reuse `ShipmentResponse` or the tracking event DTOs here.
+  - `PublicTracking*Response` leaves out parties, reference, notes, `RecordedBy`, GPS, vehicles, documents and POD details.
+  - `PublicLocationResponse` hides the name of `CustomerAddress` locations.
+  - Anything added to these DTOs is visible to anyone with a tracking number.
+- **Timeline.** It combines:
+  - the non-voided events with this `ShipmentId`;
+  - the non-voided events of its items with no `ShipmentId`, from each item's `ShipmentItem.AddedAt` until `DeliveredAt` (Delivered) or `UpdatedAt` (Cancelled).
+  - Rows are grouped by (event type, `OccurredAt`, location, reason) into one entry with a `pieces` count, newest first.
+- **Rate limiting.** The `PublicTracking` policy is a fixed window per client IP (`RateLimiting:PublicTracking:PermitLimit`/`WindowSeconds`, default 30/60s), set up with `AddRateLimiter` in `Program.cs`.
+  - Rejections are 429 with `Retry-After`, and `UseStatusCodePages` + `CustomizeProblemDetails` give them the `RATE_LIMITED` code.
+  - Use `[EnableRateLimiting]` on any future anonymous endpoint.
+
 ### Performance and data growth
 
 `TrackingEvents` is the fast-growing table. `Scripts/maintenance/README.md` has the preventive-maintenance plan and the before/after benchmarks.
@@ -137,7 +152,7 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
 
 This spans several files and is the main non-obvious design:
 
-- **Secure by default**: `Program.cs` sets a fallback policy requiring an authenticated user. Endpoints must opt out with `[AllowAnonymous]` (only `AuthController.Login` does).
+- **Secure by default**: `Program.cs` sets a fallback policy requiring an authenticated user. Endpoints must opt out with `[AllowAnonymous]`: only `AuthController.Login`, `ErrorCodesController` and `PublicTrackingController` do.
 - Actions use `[Authorize(Policy = Permissions.X)]` with constants from `Authorization/Permissions.cs` (e.g. `"Products.Read"`).
 - `Authorization/PermissionPolicyProvider.cs` (custom `IAuthorizationPolicyProvider`) turns *any* policy name into a `PermissionRequirement` — policies are never registered individually in `Program.cs`.
 - `Authorization/PermissionAuthorizationHandler.cs` checks the JWT's role claim(s) against the `RolePermissions` table (joined to `Permissions.Code`) via `AppDbContext` on every request.
