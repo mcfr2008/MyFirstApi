@@ -43,6 +43,9 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
   - The receiver **signs on the courier's device**, optionally with photos. The API stores the signature image with its SHA-256, the receiver's name and relation, GPS and time.
   - The same request delivers the shipment. Items the receiver refuses get `DELIVERY_FAILED` with a reason instead.
   - Shipments require a signature by default.
+- **Route planning**
+  - Give a start and an end (address or location) and the API finds the **fastest**, **shortest** or **lowest-emission** route through the lane network.
+  - The ETA counts the wait for each truck, train or vessel's next scheduled departure. The API also suggests alternative routes.
 - **Carbon footprint (CO₂e)**
   - Every shipment's greenhouse-gas emissions per leg and in total, following **ISO 14083 / GLEC Framework** (well-to-wheel). The public tracking page shows the total.
 - **Safe retries (idempotency keys)**
@@ -118,6 +121,7 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
 | Containers | master-data endpoints (below) + `GET /{id}/contents` · `POST /{id}/load` · `/unload` · `/scan` |
 | Shipments | `GET/POST /api/v1/Shipments` · `GET/PUT /{id}` · `GET /by-tracking/{no}` · `PUT /{id}/legs/{legId}` · `POST /{id}/legs/{legId}/depart` · `/arrive` · `GET/POST /{id}/items` · `DELETE /{id}/items/{itemId}` · `POST /{id}/customs` · `/events` · `/deliver` · `/cancel` |
 | Proof of delivery | `POST /api/v1/Shipments/{id}/proof-of-delivery` (multipart) · `GET /api/v1/Shipments/{id}/proof-of-delivery` |
+| Route planning | `POST /api/v1/Routes/plan` |
 | Carbon footprint | `GET /api/v1/Shipments/{id}/emissions` · master data `EmissionFactors` (below) |
 | Public tracking | `GET /api/v1/PublicTracking/{trackingNumber}` (no login, rate limited) |
 | Files | `GET /api/v1/Files/{id}` (signature / photo download, bearer token required) |
@@ -180,6 +184,34 @@ In one transaction, the API:
 **Files**
 - **Storage.** Files are stored under `FileStorage:RootPath` (`App_Data/files` by default; Docker Compose uses the `files-data` volume). They're served by `GET /api/v1/Files/{id}` with the bearer token, so a frontend fetches the image as a blob rather than using `<img src>`.
 - **Personal data.** Signatures and photos are personal data under PDPA; role-based access to them comes with the permissions phase.
+
+## Route planning
+
+`POST /api/v1/Routes/plan` finds a route through the network of **lanes**. It is read-only: nothing is saved and shipments aren't changed.
+
+```json
+{ "origin": { "postalCode": "10260", "province": "กรุงเทพมหานคร" },
+  "destination": { "locationId": 42 },
+  "readyAt": "2026-10-02T15:00:00+07:00",
+  "objective": "Fastest",
+  "weightKg": 2000,
+  "maxAlternatives": 2 }
+```
+
+1. **Ends.** An address, or a `CustomerAddress` location, is mapped to its **station** through the service areas. Any other location (hub, branch, port, ...) is used as is.
+2. **Search.** A Dijkstra search over active lanes (up to 12 legs) runs with one of these objectives:
+   - **`Fastest`** (default) is time-dependent. At each point it takes the lane's next scheduled departure (`departureTimes` and `operatingDays`, in the origin's local time), so the ETA includes waiting for the next truck, train or vessel.
+   - **`Shortest`** uses the fewest km. The distance is the lane's, or else estimated from coordinates.
+   - **`LowestEmissions`** uses the least kg CO₂e per tonne (lane distance × emission factor).
+3. **Alternatives.** The search runs again with each lane of the best route excluded in turn, which gives distinct alternative routes.
+
+**Response**
+- For each leg: the lane, mode, carrier, wait, departure and arrival (UTC, with each point's `timeZone`), transit time, distance and CO₂e per tonne.
+- Totals: ETA, total/transit/wait minutes, distance, CO₂e per tonne, and CO₂e in kg when `weightKg` is given.
+
+**Errors**
+- `404 ROUTE_ENDPOINT_NOT_COVERED`: no service area covers an end.
+- `404 ROUTE_NOT_FOUND`: no chain of active lanes connects the two ends.
 
 ## Carbon footprint
 
@@ -357,7 +389,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (286 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (311 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -425,7 +457,8 @@ Before deploying beyond local development:
 - [x] Route planning, phase 1: service areas (postal code / province → station and hub)
 - [x] Route planning, phase 1: lanes (scheduled hub-to-hub connections)
 - [x] Carbon footprint per shipment (ISO 14083 / GLEC, well-to-wheel)
-- [ ] Route planning: route planner, auto-generated shipment legs, misroute detection
+- [x] Route planner: fastest / shortest / lowest-emission routes with schedule-aware ETA and alternatives
+- [ ] Route planning: auto-generated shipment legs, misroute detection
 - [ ] Automated tests, CI/CD, health checks
 
 ## Contributing

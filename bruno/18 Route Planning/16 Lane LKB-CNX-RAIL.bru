@@ -1,0 +1,30 @@
+meta {
+  name: Lane LKB-CNX-RAIL
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-LKB-CNX-RAIL-{{runId}}",
+    "name": "RP LKB-CNX-RAIL",
+    "originLocationId": {{rpLkbId}},
+    "destinationLocationId": {{rpCnxHubId}},
+    "mode": "Rail",
+    "transitTimeMinutes": 1080,
+    "distanceKm": 750,
+    "departureTimes": [
+      "18:00"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+}

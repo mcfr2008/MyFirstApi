@@ -1,0 +1,22 @@
+meta {
+  name: 18 Route Planning
+  seq: 18
+}
+
+auth {
+  mode: inherit
+}
+
+docs {
+  POST /api/v1/Routes/plan finds a route over the lane network (read-only).
+  Test network (all Asia/Bangkok), goods ready Friday 2026-10-02 15:00:
+
+  Bangna branch -(on demand, 1 h, 25 km)-> Lat Krabang hub, then three ways to Chiang Mai hub:
+  - via Nakhon Sawan: 22:00 daily (4 h, 240 km), then 03:00 Mon/Wed/Fri/Sun only (5 h, 330 km)
+  - via Phitsanulok: 20:00 daily (5.5 h, 380 km), then 06:00 daily (4.5 h, 300 km)
+  - rail: 18:00 daily (18 h, 750 km)
+  then Chiang Mai hub -(courier on demand, 40 min, 12 km)-> Chiang Mai branch.
+
+  Fastest = via Phitsanulok (arrives Sat 11:10), Shortest = via Nakhon Sawan (607 km,
+  but waits for Sunday's 03:00 departure), LowestEmissions = rail.
+}

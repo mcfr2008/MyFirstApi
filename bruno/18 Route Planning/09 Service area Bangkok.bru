@@ -1,0 +1,25 @@
+meta {
+  name: Service area Bangkok
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/ServiceAreas
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-BKK-{{runId}}",
+    "name": "Bangkok (route test)",
+    "province": "กรุงเทพ RP-{{runId}}",
+    "stationLocationId": {{rpBnaId}},
+    "hubLocationId": {{rpLkbId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+}

@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > Thing-Tag คือระบบติดตามอัจฉริยะที่ออกแบบมาเพื่อเกาะติดทุกการเคลื่อนไหวของสิ่งของทุกประเภท ตั้งแต่ต้นทางจนถึงปลายทางอย่างไร้รอยต่อ มอบประสบการณ์การขนส่งที่โปร่งใสและตรวจสอบได้จริง เหมือนกับระบบโลจิสติกส์มาตรฐานระดับสากล
 
-Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; and carbon footprint. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
+Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; carbon footprint; and route planning. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
 
 ## Commands
 
@@ -76,7 +76,15 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
   - `DepartureTimes` is a `text[]` of `"HH:mm"` in the origin location's time zone, de-duplicated and sorted. Empty means on demand.
   - `OperatingDays` is a `text[]` of `Weekday` names, sorted Monday-first. Empty means every day. The response exposes it as typed `Weekday` values via `OperatingDayNames`, like `Carrier.Modes`.
   - The list filters are `originLocationId`, `destinationLocationId`, `locationId` (either end), `mode` and `carrierId`.
-- **Next phases.** The route planner (chaining lanes from the origin's hub to the destination's hub, with waits for the next departure) and generating shipment legs will build on these. Don't build them until the user asks.
+- **Route planner.** `POST /api/v1/Routes/plan` is implemented in `RoutesController` and `Services/RoutePlannerService.cs`. It is read-only and saves nothing.
+  - **Ends.** A non-`CustomerAddress` location is used as is. An address or a customer location goes through `IServiceAreaService.FindAsync` to its station. A missing area gives `ROUTE_ENDPOINT_NOT_COVERED`.
+  - **Search.** It loads all active lanes once and runs Dijkstra (up to 12 legs) from the origin station to the destination station.
+    - `Fastest` is time-dependent. `NetworkLane.NextDeparture` takes the next `DepartureTimes`/`OperatingDays` slot in the lane origin's IANA time zone. Empty times mean the lane leaves on arrival, and days not in `OperatingDays` are skipped.
+    - `Shortest` and `LowestEmissions` use static weights: km, and kg CO2e per tonne.
+    - Lanes with an unknown distance are skipped for those two objectives.
+  - **Alternatives.** Simplified Yen's: the search is re-run excluding each lane of the best path, keeping distinct paths ranked by the objective.
+  - **Reuse.** Distance and factor helpers are shared with the carbon footprint in `Services/TransportEstimates.cs`.
+- **Next phases.** Generating shipment legs from a plan and detecting misroutes will build on the planner. Don't build them until the user asks.
 
 ### Tracking model (the core of Thing-Tag)
 

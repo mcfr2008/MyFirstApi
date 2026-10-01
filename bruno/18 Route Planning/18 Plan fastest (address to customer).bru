@@ -1,0 +1,56 @@
+meta {
+  name: Plan fastest (address to customer)
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Routes/plan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "origin": {
+      "province": "กรุงเทพ RP-{{runId}}"
+    },
+    "destination": {
+      "locationId": {{rpCustId}}
+    },
+    "readyAt": "2026-10-02T15:00:00+07:00",
+    "objective": "Fastest",
+    "weightKg": 2000
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.origin.matchedBy: eq "Province"
+  res.body.origin.station.id: eq {{rpBnaId}}
+  res.body.destination.location.id: eq {{rpCustId}}
+  res.body.destination.station.id: eq {{rpCnxBrId}}
+  res.body.best.legs.length: eq 4
+  res.body.best.legs[1].destination.id: eq {{rpPlkId}}
+  res.body.best.arrivalAt: eq "2026-10-03T04:10:00Z"
+  res.body.best.totalMinutes: eq 1210
+  res.body.best.transitMinutes: eq 700
+  res.body.best.waitMinutes: eq 510
+  res.body.best.distanceKm: eq 717
+  res.body.best.co2eKgPerTonne: eq 76.5
+  res.body.best.co2eKg: eq 153
+  res.body.alternatives.length: eq 1
+  res.body.alternatives[0].legs[1].mode: eq "Rail"
+}
+
+tests {
+  test("waits: 4 h at Lat Krabang for the 20:00 truck, 4.5 h at Phitsanulok", function () {
+    const legs = res.body.best.legs;
+    expect(legs.map(l => l.waitMinutes)).to.eql([0, 240, 270, 0]);
+    expect(legs[1].departureAt).to.equal("2026-10-02T13:00:00Z");
+  });
+}
+
+docs {
+  Arrives Saturday 11:10 Bangkok time (04:10Z): 11 h 40 min moving + 8 h 30 min waiting. The rail route is the only distinct alternative.
+}

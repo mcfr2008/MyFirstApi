@@ -1,0 +1,30 @@
+meta {
+  name: Create Isolated hub
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-ISO-{{runId}}",
+    "name": "Isolated hub",
+    "type": "Hub",
+    "province": "ตาก",
+    "country": "TH",
+    "timeZone": "Asia/Bangkok"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("rpIsoId", res.body.id);
+}

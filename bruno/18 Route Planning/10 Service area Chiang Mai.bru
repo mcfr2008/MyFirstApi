@@ -1,0 +1,25 @@
+meta {
+  name: Service area Chiang Mai
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/ServiceAreas
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-CNX-{{runId}}",
+    "name": "Chiang Mai (route test)",
+    "province": "เชียงใหม่ RP-{{runId}}",
+    "stationLocationId": {{rpCnxBrId}},
+    "hubLocationId": {{rpCnxHubId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+}

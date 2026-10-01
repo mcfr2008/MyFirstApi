@@ -17,15 +17,6 @@ public class CarbonFootprintService : ICarbonFootprintService
 {
     public const string Methodology = "ISO 14083:2023 / GLEC Framework, well-to-wheel (WTW) CO2e";
 
-    // Great-circle distances are shorter than real routes. Sea and air follow the
-    // GLEC Framework (x1.15, +95 km); road and rail use a typical x1.2 detour factor.
-    private static decimal AdjustGreatCircle(TransportMode mode, decimal km) => mode switch
-    {
-        TransportMode.Sea => km * 1.15m,
-        TransportMode.Air => km + 95m,
-        _ => km * 1.2m
-    };
-
     private readonly AppDbContext _context;
 
     public CarbonFootprintService(AppDbContext context)
@@ -67,8 +58,7 @@ public class CarbonFootprintService : ICarbonFootprintService
         foreach (var leg in legs)
         {
             var (distance, source) = ResolveDistance(leg, lanes);
-            var factor = factors.FirstOrDefault(f => f.Mode == leg.Mode && leg.CarrierId != null && f.CarrierId == leg.CarrierId)
-                         ?? factors.FirstOrDefault(f => f.Mode == leg.Mode && f.CarrierId == null);
+            var factor = TransportEstimates.PickFactor(factors, leg.Mode, leg.CarrierId);
 
             if (distance == null) gaps.Add(EmissionDataGap.LegDistanceUnknown);
             if (factor == null) gaps.Add(EmissionDataGap.EmissionFactorMissing);
@@ -118,26 +108,7 @@ public class CarbonFootprintService : ICarbonFootprintService
             .FirstOrDefault();
         if (lane != null) return (lane.DistanceKm, DistanceSource.Lane);
 
-        var from = leg.OriginLocation;
-        var to = leg.DestinationLocation;
-        if (from.Latitude is { } lat1 && from.Longitude is { } lon1 &&
-            to.Latitude is { } lat2 && to.Longitude is { } lon2)
-        {
-            var km = GreatCircleKm((double)lat1, (double)lon1, (double)lat2, (double)lon2);
-            return (AdjustGreatCircle(leg.Mode, (decimal)km), DistanceSource.GreatCircle);
-        }
-        return (null, DistanceSource.Unknown);
-    }
-
-    // Haversine distance on a sphere of mean Earth radius.
-    private static double GreatCircleKm(double lat1, double lon1, double lat2, double lon2)
-    {
-        const double earthRadiusKm = 6371.0;
-        static double Rad(double degrees) => degrees * Math.PI / 180;
-        var dLat = Rad(lat2 - lat1);
-        var dLon = Rad(lon2 - lon1);
-        var a = Math.Pow(Math.Sin(dLat / 2), 2) +
-                Math.Cos(Rad(lat1)) * Math.Cos(Rad(lat2)) * Math.Pow(Math.Sin(dLon / 2), 2);
-        return 2 * earthRadiusKm * Math.Asin(Math.Sqrt(a));
+        var estimate = TransportEstimates.EstimateKm(leg.Mode, leg.OriginLocation, leg.DestinationLocation);
+        return estimate.HasValue ? (estimate, DistanceSource.GreatCircle) : (null, DistanceSource.Unknown);
     }
 }

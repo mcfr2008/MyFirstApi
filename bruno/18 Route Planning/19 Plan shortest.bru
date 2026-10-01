@@ -1,0 +1,36 @@
+meta {
+  name: Plan shortest
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Routes/plan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "origin": {
+      "province": "กรุงเทพ RP-{{runId}}"
+    },
+    "destination": {
+      "province": "เชียงใหม่ RP-{{runId}}"
+    },
+    "readyAt": "2026-10-02T15:00:00+07:00",
+    "objective": "Shortest"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.best.distanceKm: eq 607
+  res.body.best.legs[1].destination.id: eq {{rpNsnId}}
+  res.body.best.arrivalAt: eq "2026-10-04T01:40:00Z"
+  res.body.best.co2eKg: isNull
+}
+
+docs {
+  607 km via Nakhon Sawan, but the 03:00 lane doesn't run on Saturday, so it arrives Sunday 08:40. No weightKg, so only per-tonne CO2e.
+}

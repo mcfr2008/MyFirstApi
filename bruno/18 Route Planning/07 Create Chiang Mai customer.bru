@@ -1,0 +1,30 @@
+meta {
+  name: Create Chiang Mai customer
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-CUST-{{runId}}",
+    "name": "Chiang Mai customer",
+    "type": "CustomerAddress",
+    "province": "เชียงใหม่ RP-{{runId}}",
+    "country": "TH",
+    "timeZone": "Asia/Bangkok"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("rpCustId", res.body.id);
+}

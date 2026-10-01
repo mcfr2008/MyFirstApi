@@ -1,0 +1,30 @@
+meta {
+  name: Lane LKB-PLK
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-LKB-PLK-{{runId}}",
+    "name": "RP LKB-PLK",
+    "originLocationId": {{rpLkbId}},
+    "destinationLocationId": {{rpPlkId}},
+    "mode": "Road",
+    "transitTimeMinutes": 330,
+    "distanceKm": 380,
+    "departureTimes": [
+      "20:00"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+}

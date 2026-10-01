@@ -1,0 +1,34 @@
+meta {
+  name: Plan from a hub (network point)
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Routes/plan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "origin": {
+      "locationId": {{rpLkbId}}
+    },
+    "destination": {
+      "locationId": {{rpCnxBrId}}
+    },
+    "readyAt": "2026-10-02T15:00:00+07:00"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.origin.serviceArea: isNull
+  res.body.origin.station.id: eq {{rpLkbId}}
+  res.body.best.legs.length: eq 3
+}
+
+docs {
+  Non-customer locations are used as is, without a service area.
+}

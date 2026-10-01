@@ -1,0 +1,30 @@
+meta {
+  name: Create Bangna branch
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Locations
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RP-BNA-{{runId}}",
+    "name": "Bangna branch",
+    "type": "Branch",
+    "province": "กรุงเทพ RP-{{runId}}",
+    "country": "TH",
+    "timeZone": "Asia/Bangkok"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("rpBnaId", res.body.id);
+}
