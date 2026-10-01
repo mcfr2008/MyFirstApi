@@ -1,0 +1,33 @@
+meta {
+  name: Same key after fixing the request
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: retry-after-error-{{runId}}
+}
+
+body:json {
+  {
+    "trackedItemId": {{idemItemId}},
+    "eventTypeCode": "DEPARTED_HUB",
+    "locationId": {{locationId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("runs for real, not a replay", function () {
+    expect(res.headers["idempotent-replayed"]).to.be.undefined;
+  });
+}

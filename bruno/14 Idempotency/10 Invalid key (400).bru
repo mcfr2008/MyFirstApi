@@ -1,0 +1,28 @@
+meta {
+  name: Invalid key (400)
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: has spaces {{runId}}
+}
+
+body:json {
+  {
+    "trackedItemId": {{idemItemId}},
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{locationId}}
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "IDEMPOTENCY_KEY_INVALID"
+}

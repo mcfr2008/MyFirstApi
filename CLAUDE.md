@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > Thing-Tag คือระบบติดตามอัจฉริยะที่ออกแบบมาเพื่อเกาะติดทุกการเคลื่อนไหวของสิ่งของทุกประเภท ตั้งแต่ต้นทางจนถึงปลายทางอย่างไร้รอยต่อ มอบประสบการณ์การขนส่งที่โปร่งใสและตรวจสอบได้จริง เหมือนกับระบบโลจิสติกส์มาตรฐานระดับสากล
 
-Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; and public tracking. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
+Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; and idempotency keys for safe retries. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
 
 ## Commands
 
@@ -119,6 +119,22 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
 - **Rate limiting.** The `PublicTracking` policy is a fixed window per client IP (`RateLimiting:PublicTracking:PermitLimit`/`WindowSeconds`, default 30/60s), set up with `AddRateLimiter` in `Program.cs`.
   - Rejections are 429 with `Retry-After`, and `UseStatusCodePages` + `CustomizeProblemDetails` give them the `RATE_LIMITED` code.
   - Use `[EnableRateLimiting]` on any future anonymous endpoint.
+
+### Idempotency keys
+
+- **Opt-in per action.** `[Idempotent]` (`Idempotency/IdempotentAttribute.cs`) turns on `Idempotency/IdempotencyFilter.cs` for a POST action. It is on every POST that records events or creates records in the item, event, container and shipment flows, but not on master data (unique codes already block duplicates) or on PUT/DELETE (idempotent by nature).
+  - Put `[Idempotent]` on any new POST of that kind.
+  - A decorated action must return an `ObjectResult` or `StatusCodeResult`. Other result types throw, because they can't be stored.
+- **Same transaction.** When a request has an `Idempotency-Key`, the filter opens a transaction on the scoped `AppDbContext` and inserts the key row with `ON CONFLICT DO NOTHING`. The action then runs, and its service `SaveChanges` joins that transaction. A 2xx response is stored and committed together with the business changes.
+  - Exceptions and non-2xx responses roll back, and the key isn't kept.
+  - Services must not start their own transactions (`BeginTransaction`) or use an execution strategy with retries. Both would conflict with the filter's transaction.
+- **Request hash.** It is SHA-256 of the method, the path and query, and the **bound** action arguments. Uploaded `IFormFile`s count by name, size and content hash.
+  - A different hash for the same key gives `422 IDEMPOTENCY_KEY_REUSED`, and a bad key gives `400 IDEMPOTENCY_KEY_INVALID`.
+  - Replays add `Idempotent-Replayed: true`, which is exposed through CORS.
+- **Concurrency.** A concurrent request with the same key blocks on the uncommitted row, gets 0 rows inserted after the first request commits, and replays its response.
+- **Storage.** Keys are per user (PK `Username`, `Key`) and live in `IdempotencyKeys` (`Scripts/030`).
+  - They expire after `Idempotency:RetentionHours` (default 24). `IdempotencyKeyCleanupService` deletes expired rows hourly.
+  - An expired key found on use is deleted and reused.
 
 ### Performance and data growth
 

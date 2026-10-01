@@ -28,6 +28,7 @@ public class AppDbContext : DbContext
     public DbSet<ReasonCode> ReasonCodes { get; set; }
     public DbSet<StoredFile> StoredFiles { get; set; }
     public DbSet<ProofOfDelivery> ProofsOfDelivery { get; set; }
+    public DbSet<IdempotencyKey> IdempotencyKeys { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -134,6 +135,12 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(f => f.StorageKey).IsUnique();
             entity.Property(f => f.Purpose).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<IdempotencyKey>(entity =>
+        {
+            entity.HasKey(k => new { k.Username, k.Key });
+            entity.HasIndex(k => k.ExpiresAt);
         });
 
         modelBuilder.Entity<ProofOfDelivery>(entity =>

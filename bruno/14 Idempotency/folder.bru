@@ -1,0 +1,16 @@
+meta {
+  name: 14 Idempotency
+  seq: 14
+}
+
+auth {
+  mode: inherit
+}
+
+docs {
+  POSTs that record events or create records accept an `Idempotency-Key` header. A retry with
+  the same key and the same request returns the stored response (header `Idempotent-Replayed: true`)
+  without running again, so a scanner that resends after a lost connection doesn't create duplicates.
+  Only successful responses are stored. A retry must send the same body, so don't use
+  `{{$isoTimestamp}}` in a request you plan to retry.
+}

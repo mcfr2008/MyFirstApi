@@ -1,0 +1,25 @@
+meta {
+  name: Item has one arrival, not two
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/TrackingEvents?trackedItemId={{idemItemId}}&includeTotalCount=true
+  body: none
+  auth: inherit
+}
+
+params:query {
+  trackedItemId: {{idemItemId}}
+  includeTotalCount: true
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 2
+}
+
+docs {
+  REGISTERED (from creating the item) + one ARRIVED_AT_HUB.
+}

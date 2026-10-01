@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MyFirstApi.Dtos;
+using MyFirstApi.Idempotency;
 using MyFirstApi.Interfaces;
 
 namespace MyFirstApi.Controllers;
@@ -35,6 +36,7 @@ public class TrackingEventsController : ControllerBase
         return Ok(trackingEvent);
     }
 
+    [Idempotent]
     [HttpPost]
     public async Task<IActionResult> Record(RecordEventRequest request)
     {
@@ -42,6 +44,7 @@ public class TrackingEventsController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, trackingEvent);
     }
 
+    [Idempotent]
     [HttpPost("scan")]
     public async Task<IActionResult> Scan(ScanEventsRequest request)
     {
@@ -49,6 +52,7 @@ public class TrackingEventsController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, new { eventsRecorded = events.Count, events });
     }
 
+    [Idempotent]
     [HttpPost("{id:long}/void")]
     public async Task<IActionResult> Void(long id, VoidEventRequest request)
     {
@@ -59,6 +63,7 @@ public class TrackingEventsController : ControllerBase
     }
 
     // Void + record the corrected event in one step.
+    [Idempotent]
     [HttpPost("{id:long}/correct")]
     public async Task<IActionResult> Correct(long id, CorrectEventRequest request)
     {

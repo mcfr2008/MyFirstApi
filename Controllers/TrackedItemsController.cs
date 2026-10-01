@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MyFirstApi.Dtos;
+using MyFirstApi.Idempotency;
 using MyFirstApi.Interfaces;
 
 namespace MyFirstApi.Controllers;
@@ -43,6 +44,7 @@ public class TrackedItemsController : ControllerBase
         return Ok(item);
     }
 
+    [Idempotent]
     [HttpPost]
     public async Task<IActionResult> Create(CreateTrackedItemRequest request)
     {
@@ -50,6 +52,7 @@ public class TrackedItemsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
     }
 
+    [Idempotent]
     [HttpPost("bulk")]
     public async Task<IActionResult> CreateBulk(BulkCreateTrackedItemsRequest request)
     {
