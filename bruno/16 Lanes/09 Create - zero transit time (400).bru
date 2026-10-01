@@ -1,0 +1,27 @@
+meta {
+  name: Create - zero transit time (400)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "BAD-5-{{runId}}",
+    "name": "Instant",
+    "originLocationId": {{saBkkHubId}},
+    "destinationLocationId": {{lnNsnHubId}},
+    "mode": "Road",
+    "transitTimeMinutes": 0
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.errors.TransitTimeMinutes: isDefined
+}

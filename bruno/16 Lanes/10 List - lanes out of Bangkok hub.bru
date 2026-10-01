@@ -1,0 +1,21 @@
+meta {
+  name: List - lanes out of Bangkok hub
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Lanes?originLocationId={{saBkkHubId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  originLocationId: {{saBkkHubId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 1
+  res.body.items[0].id: eq {{lnBkkNsnId}}
+}

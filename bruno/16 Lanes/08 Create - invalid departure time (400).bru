@@ -1,0 +1,31 @@
+meta {
+  name: Create - invalid departure time (400)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "BAD-4-{{runId}}",
+    "name": "Bad time",
+    "originLocationId": {{saBkkHubId}},
+    "destinationLocationId": {{lnNsnHubId}},
+    "mode": "Road",
+    "transitTimeMinutes": 240,
+    "departureTimes": [
+      "25:00",
+      "8:00"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.errors.DepartureTimes: isDefined
+}

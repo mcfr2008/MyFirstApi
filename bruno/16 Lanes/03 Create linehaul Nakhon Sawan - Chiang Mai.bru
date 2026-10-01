@@ -1,0 +1,47 @@
+meta {
+  name: Create linehaul Nakhon Sawan - Chiang Mai
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "NSN-CNX-{{runId}}",
+    "name": "Linehaul นครสวรรค์ - เชียงใหม่",
+    "originLocationId": {{lnNsnHubId}},
+    "destinationLocationId": {{saCnxHubId}},
+    "mode": "Road",
+    "carrierId": {{roadCarrierId}},
+    "transitTimeMinutes": 300,
+    "distanceKm": 330,
+    "departureTimes": [
+      "03:00"
+    ],
+    "operatingDays": [
+      "Sunday",
+      "Monday",
+      "Wednesday",
+      "Friday",
+      "Monday"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.operatingDays.length: eq 4
+  res.body.operatingDays[0]: eq "Monday"
+  res.body.operatingDays[1]: eq "Wednesday"
+  res.body.operatingDays[2]: eq "Friday"
+  res.body.operatingDays[3]: eq "Sunday"
+}
+
+docs {
+  Operating days are de-duplicated and sorted Monday-first.
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Create - customer address endpoint (400)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "BAD-2-{{runId}}",
+    "name": "To a customer",
+    "originLocationId": {{saCnxHubId}},
+    "destinationLocationId": {{jpCustomerLocId}},
+    "mode": "Courier",
+    "transitTimeMinutes": 60
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "LOCATION_TYPE_NOT_ALLOWED"
+  res.body.args.field: eq "destinationLocationId"
+}
+
+docs {
+  The last mile to a customer is a shipment leg, not a scheduled lane.
+}

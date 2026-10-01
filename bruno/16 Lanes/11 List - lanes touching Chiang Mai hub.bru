@@ -1,0 +1,24 @@
+meta {
+  name: List - lanes touching Chiang Mai hub
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Lanes?locationId={{saCnxHubId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  locationId: {{saCnxHubId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 2
+}
+
+docs {
+  Arriving from Nakhon Sawan and leaving for the branch.
+}

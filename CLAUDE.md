@@ -47,7 +47,7 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
 - **CORS.** Policy "Frontend" allows the origins in `Cors:AllowedOrigins` (dev servers are listed in `appsettings.Development.json`, and the list is empty in `appsettings.json`).
 - Enums are serialized as strings (`[JsonConverter(typeof(JsonStringEnumConverter<T>))]` on the enum) and stored as strings (`HasConversion<string>()`).
 - Lists are paged with `PagedResult<T>`. Items are archived (`IsArchived`) instead of deleted so tracking history survives.
-- **Master data** (`ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, `ServiceAreas`) is built on shared generic bases: `Services/MasterDataService<...>` and `Controllers/MasterDataController<...>`.
+- **Master data** (`ItemCategories`, `Locations`, `Parties`, `EventTypes`, `ReasonCodes`, `Carriers`, `Vehicles`, `Containers`, `ServiceAreas`, `Lanes`) is built on shared generic bases: `Services/MasterDataService<...>` and `Controllers/MasterDataController<...>`.
   - Each concrete service only defines its DbSet, projection, search, filters, order and `Apply`. Each concrete controller only adds `[Route]`.
   - Entities implement `Models/IMasterData`, and responses implement `IMasterDataResponse`.
   - Codes are unique and stored upper-case. `DELETE` deactivates (`IsActive=false`) instead of deleting.
@@ -57,7 +57,7 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
 - `TrackedItem` optionally references `ItemCategory`, `Location` (`CurrentLocationId`), `Party` (owner) and `Container` (`CurrentContainerId`), all with FK `ON DELETE RESTRICT`. A category's `RequiredAttributes` keys must be present in the item's `Attributes`.
 - Timestamps are UTC `DateTime` stored as `timestamptz`. Request timestamps are `DateTimeOffset`, converted with `.UtcDateTime`. The current username comes from `ICurrentUser` (the JWT `sub` claim, which JwtBearer maps to `ClaimTypes.NameIdentifier`).
 
-### Service areas (route planning, phase 1)
+### Service areas and lanes (route planning, phase 1)
 
 - **What a row is.** A `ServiceArea` maps one postal code, or a whole province (`PostalCode` null), to:
   - a `StationLocationId`: the Branch, DropPoint, Hub or Warehouse that does pickup and delivery in the area;
@@ -69,7 +69,14 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
   - It matches the active postal-code area first, then the active province-wide area (`matchedBy`), or returns `404 SERVICE_AREA_NOT_COVERED`.
   - Province matching is case-insensitive equality, so the area's province must be spelled the same way as `Locations.Province` (the seed data uses Thai names).
   - Thai postal codes must be 5 digits.
-- **Next phases.** Hub-to-hub lanes, the route planner and generating shipment legs will build on the station/hub that `resolve` returns. Don't build them until the user asks.
+- **Lanes** (`Lane`, `Scripts/032`) are one-way scheduled connections between network points. The return trip is its own lane.
+  - An end can be any location type except `CustomerAddress`, because the last mile to a customer is a shipment leg.
+  - The carrier must run the lane's mode. `TransportModes.SameFamily` (moved from `ShipmentService` to `Models/TransportMode.cs`) treats Road and Courier as one.
+  - `TransitTimeMinutes` is required (1 minute to 60 days).
+  - `DepartureTimes` is a `text[]` of `"HH:mm"` in the origin location's time zone, de-duplicated and sorted. Empty means on demand.
+  - `OperatingDays` is a `text[]` of `Weekday` names, sorted Monday-first. Empty means every day. The response exposes it as typed `Weekday` values via `OperatingDayNames`, like `Carrier.Modes`.
+  - The list filters are `originLocationId`, `destinationLocationId`, `locationId` (either end), `mode` and `carrierId`.
+- **Next phases.** The route planner (chaining lanes from the origin's hub to the destination's hub, with waits for the next departure) and generating shipment legs will build on these. Don't build them until the user asks.
 
 ### Tracking model (the core of Thing-Tag)
 

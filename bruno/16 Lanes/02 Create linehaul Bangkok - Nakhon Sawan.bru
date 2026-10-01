@@ -1,0 +1,50 @@
+meta {
+  name: Create linehaul Bangkok - Nakhon Sawan
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "BKK-NSN-{{runId}}",
+    "name": "Linehaul ลาดกระบัง - นครสวรรค์",
+    "originLocationId": {{saBkkHubId}},
+    "destinationLocationId": {{lnNsnHubId}},
+    "mode": "Road",
+    "carrierId": {{roadCarrierId}},
+    "transitTimeMinutes": 240,
+    "distanceKm": 240,
+    "departureTimes": [
+      "22:00",
+      "08:00",
+      "22:00"
+    ],
+    "operatingDays": []
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.origin.id: eq {{saBkkHubId}}
+  res.body.destination.id: eq {{lnNsnHubId}}
+  res.body.mode: eq "Road"
+  res.body.carrier.id: eq {{roadCarrierId}}
+  res.body.departureTimes.length: eq 2
+  res.body.departureTimes[0]: eq "08:00"
+  res.body.departureTimes[1]: eq "22:00"
+  res.body.operatingDays.length: eq 0
+}
+
+script:post-response {
+  bru.setVar("lnBkkNsnId", res.body.id);
+}
+
+docs {
+  Departure times are de-duplicated and sorted. No operating days = runs every day.
+}

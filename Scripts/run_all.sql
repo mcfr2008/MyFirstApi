@@ -35,3 +35,4 @@
 \ir 029_proof_of_delivery.sql
 \ir 030_idempotency_keys.sql
 \ir 031_service_areas.sql
+\ir 032_lanes.sql
