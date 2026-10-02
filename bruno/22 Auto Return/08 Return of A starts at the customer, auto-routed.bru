@@ -1,0 +1,25 @@
+meta {
+  name: Return of A starts at the customer, auto-routed
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/by-tracking/{{arAReturnTrackingNumber}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.returnOf.id: eq {{arAShipmentId}}
+  res.body.origin.id: eq {{rpCustId}}
+  res.body.destination.id: eq {{arSenderLocId}}
+  res.body.legs.length: eq 5
+  res.body.legs[0].mode: eq "Courier"
+  res.body.legs[0].destination.id: eq {{rpCnxBrId}}
+}
+
+docs {
+  First mile from the receiver's address to the Chiang Mai branch, the three return lanes, then the last mile to the sender.
+}

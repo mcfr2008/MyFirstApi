@@ -1,0 +1,19 @@
+meta {
+  name: Public tracking shows the automatic return
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/PublicTracking/{{arATrackingNumber}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "ReturnedToSender"
+  res.body.events[0].eventCode: eq "RETURNED"
+  res.body.events[0].reasonCode: eq "MAX_ATTEMPTS_REACHED"
+  res.body.returnTrackingNumber: eq {{arAReturnTrackingNumber}}
+}

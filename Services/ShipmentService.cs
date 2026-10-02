@@ -40,11 +40,14 @@ public partial class ShipmentService : IShipmentService
     private readonly ICurrentUser _currentUser;
     private readonly IFileStorage _fileStorage;
     private readonly IRoutePlannerService _routePlanner;
+    // Returns:MaxDeliveryAttempts - failed attempts before an automatic return (0 = never).
+    private readonly int _defaultMaxDeliveryAttempts;
 
     public ShipmentService(
         AppDbContext context, ITrackingEventRecorder recorder, ICurrentUser currentUser, IFileStorage fileStorage,
-        IRoutePlannerService routePlanner)
+        IRoutePlannerService routePlanner, IConfiguration configuration)
     {
+        _defaultMaxDeliveryAttempts = configuration.GetValue("Returns:MaxDeliveryAttempts", 3);
         _context = context;
         _recorder = recorder;
         _currentUser = currentUser;
@@ -139,7 +142,7 @@ public partial class ShipmentService : IShipmentService
 
         var items = page
             .OrderByDescending(s => s.Id)
-            .Select(s => ShipmentResponse.From(s, itemCounts.GetValueOrDefault(s.Id), withProof.Contains(s.Id)))
+            .Select(s => ShipmentResponse.From(s, itemCounts.GetValueOrDefault(s.Id), withProof.Contains(s.Id), _defaultMaxDeliveryAttempts))
             .ToList();
         await EnrichAsync(items);
 
@@ -397,7 +400,7 @@ public partial class ShipmentService : IShipmentService
     // Any other event (e.g. OUT_FOR_DELIVERY, DAMAGED) for every item in the shipment.
     public async Task<EventsRecordedResponse?> RecordEventAsync(int id, EventDetails request)
     {
-        var shipment = await _context.Shipments.FindAsync(id);
+        var shipment = await ShipmentsWithDetails().FirstOrDefaultAsync(s => s.Id == id);
         if (shipment == null) return null;
         if (shipment.Status == ShipmentStatus.Cancelled)
         {
@@ -406,12 +409,19 @@ public partial class ShipmentService : IShipmentService
         // The items now travel on the return shipment; record events there.
         EnsureStatus(shipment, "recordEvent", ShipmentStatus.Planned, ShipmentStatus.InTransit, ShipmentStatus.Delivered);
 
-        var count = await RecordForShipmentAsync(shipment, request.EventTypeCode, request.LocationId,
-            request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow, request.Note, null, isSystemManaged: false,
+        var eventTypeCode = QueryHelpers.NormalizeCode(request.EventTypeCode);
+        var occurredAt = request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow;
+        var count = await RecordForShipmentAsync(shipment, eventTypeCode, request.LocationId,
+            occurredAt, request.Note, null, isSystemManaged: false,
             reasonCode: request.ReasonCode, latitude: request.Latitude, longitude: request.Longitude);
 
+        // The Nth failed delivery attempt returns the shipment to the sender, in the same save.
+        var returnShipment = eventTypeCode == DeliveryFailedEventCode
+            ? await AutoReturnIfLimitReachedAsync(shipment, occurredAt)
+            : null;
+
         await _context.SaveChangesAsync();
-        return new EventsRecordedResponse(QueryHelpers.NormalizeCode(request.EventTypeCode), count);
+        return new EventsRecordedResponse(eventTypeCode, count, ReturnTrackingNumber: returnShipment?.TrackingNumber);
     }
 
     public async Task<ShipmentResponse?> DeliverAsync(int id, DeliverShipmentRequest request)
@@ -472,7 +482,7 @@ public partial class ShipmentService : IShipmentService
     {
         var itemCount = await _context.ShipmentItems.CountAsync(si => si.ShipmentId == shipment.Id);
         var hasProof = await _context.ProofsOfDelivery.AnyAsync(p => p.ShipmentId == shipment.Id);
-        var response = ShipmentResponse.From(shipment, itemCount, hasProof);
+        var response = ShipmentResponse.From(shipment, itemCount, hasProof, _defaultMaxDeliveryAttempts);
         await EnrichAsync([response]);
         return response;
     }
@@ -644,6 +654,7 @@ public partial class ShipmentService : IShipmentService
             ?? (origin.Country != destination.Country ? CustomsStatus.Pending : CustomsStatus.NotRequired);
         shipment.PlannedPickupAt = fields.PlannedPickupAt?.UtcDateTime;
         shipment.RequiresSignature = fields.RequiresSignature ?? (isNew || shipment.RequiresSignature);
+        shipment.MaxDeliveryAttempts = fields.MaxDeliveryAttempts;
         shipment.Notes = QueryHelpers.NullIfBlank(fields.Notes);
     }
 

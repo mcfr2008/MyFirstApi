@@ -46,6 +46,9 @@ public class Shipment
     public DateTime? PlannedPickupAt { get; set; }
     // Delivery must go through proof of delivery (receiver signature), not plain /deliver.
     public bool RequiresSignature { get; set; } = true;
+    // Failed delivery attempts before an automatic return to sender;
+    // null = Returns:MaxDeliveryAttempts (default 3), 0 = never.
+    public int? MaxDeliveryAttempts { get; set; }
     public DateTime? DeliveredAt { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }

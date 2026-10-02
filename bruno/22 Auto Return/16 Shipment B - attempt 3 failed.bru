@@ -1,0 +1,29 @@
+meta {
+  name: Shipment B - attempt 3 failed
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{arBShipmentId}}/events
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "eventTypeCode": "DELIVERY_FAILED",
+    "reasonCode": "RECIPIENT_ABSENT",
+    "locationId": {{rpCustId}},
+    "occurredAt": "{{arBAttempt3}}"
+  }
+}
+
+script:pre-request {
+  bru.setVar("arBAttempt3", new Date(Date.now() - 10 * 60 * 1000).toISOString());
+}
+
+assert {
+  res.status: eq 200
+  res.body.returnTrackingNumber: isNull
+}

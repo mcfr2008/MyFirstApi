@@ -1,0 +1,29 @@
+meta {
+  name: Delivered item - back-dated correction allowed
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCode": "{{itemTagCode}}",
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{locationId}},
+    "occurredAt": "2026-01-15T10:00:00+07:00",
+    "note": "Missing hub scan added to the history"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+docs {
+  Before the DELIVERED event: history only, the item's state doesn't change.
+}

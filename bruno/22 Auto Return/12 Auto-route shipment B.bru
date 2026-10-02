@@ -1,0 +1,23 @@
+meta {
+  name: Auto-route shipment B
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{arBShipmentId}}/route
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 200
+}
+
+script:post-response {
+  bru.setVar("arBLeg1Id", res.body.shipment.legs[0].id);
+}

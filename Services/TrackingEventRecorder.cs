@@ -102,6 +102,10 @@ public class TrackingEventRecorder : ITrackingEventRecorder
 
         await ReferenceResolver.ResolveAsync(_context.Locations.AsNoTracking(), context.LocationId, null, "locationId");
         var reason = await ResolveReasonAsync(eventType, context);
+        if (context.ShipmentId == null)
+        {
+            await EnsureJourneyOpenAsync(items, context.OccurredAt);
+        }
 
         var offRoute = await FindOffRouteShipmentsAsync(items, context);
         var now = DateTime.UtcNow;
@@ -166,6 +170,65 @@ public class TrackingEventRecorder : ITrackingEventRecorder
                                  ?? item.CurrentLocationId;
         item.LastEventAt = timeline.Count > 0 ? timeline[^1].Event.OccurredAt : null;
         item.UpdatedAt = DateTime.UtcNow;
+    }
+
+    // Terminal events (EventType.IsTerminal: DELIVERED, RETURNED) end an item's journey:
+    // after one, new manual / scan / container events are rejected unless the item has
+    // joined an open shipment since then (a return shipment, or a new shipment). Events
+    // recorded by a shipment operation aren't checked (the item is in that shipment), and
+    // back-dated events (before the terminal one) are allowed as history corrections.
+    private async Task EnsureJourneyOpenAsync(IReadOnlyCollection<TrackedItem> items, DateTime occurredAt)
+    {
+        var candidates = items
+            .Where(i => i.Id != 0 && i.LastEventAt.HasValue && occurredAt >= i.LastEventAt.Value)
+            .ToList();
+        if (candidates.Count == 0) return;
+
+        // Events being voided in this unit of work no longer count.
+        var voidedNow = _context.ChangeTracker.Entries<TrackingEvent>()
+            .Where(e => e.Entity.IsVoided && e.State == EntityState.Modified)
+            .Select(e => e.Entity.Id)
+            .ToHashSet();
+        var ids = candidates.Select(i => i.Id).ToList();
+        var times = candidates.Select(i => i.LastEventAt!.Value).Distinct().ToList();
+        var latest = await _context.TrackingEvents.AsNoTracking()
+            .Where(e => ids.Contains(e.TrackedItemId) && times.Contains(e.OccurredAt) && !e.IsVoided)
+            .Select(e => new { e.Id, e.TrackedItemId, e.OccurredAt, e.EventTypeId })
+            .ToListAsync();
+
+        var ended = new List<(TrackedItem Item, DateTime At, string EventType)>();
+        foreach (var item in candidates)
+        {
+            foreach (var e in latest.Where(e => e.TrackedItemId == item.Id && e.OccurredAt == item.LastEventAt && !voidedNow.Contains(e.Id)))
+            {
+                var type = await _cache.FindEventTypeAsync(e.EventTypeId);
+                if (type is { IsTerminal: true })
+                {
+                    ended.Add((item, e.OccurredAt, type.Code));
+                    break;
+                }
+            }
+        }
+        if (ended.Count == 0) return;
+
+        var endedIds = ended.Select(x => x.Item.Id).ToList();
+        var reopened = await _context.ShipmentItems.AsNoTracking()
+            .Where(si => endedIds.Contains(si.TrackedItemId) &&
+                         (si.Shipment.Status == ShipmentStatus.Planned || si.Shipment.Status == ShipmentStatus.InTransit))
+            .Select(si => new { si.TrackedItemId, si.AddedAt })
+            .ToListAsync();
+        // Shipment items staged in this unit of work (e.g. a return shipment being created).
+        var staged = _context.ChangeTracker.Entries<ShipmentItem>()
+            .Where(e => e.State == EntityState.Added)
+            .Select(e => new { e.Entity.TrackedItemId, e.Entity.AddedAt });
+
+        var blocked = ended
+            .Where(x => !reopened.Concat(staged).Any(r => r.TrackedItemId == x.Item.Id && r.AddedAt >= x.At))
+            .ToList();
+        if (blocked.Count > 0)
+        {
+            throw Errors.ItemJourneyEnded(blocked.Select(x => $"{x.Item.TagCode} ({x.EventType})").ToList());
+        }
     }
 
     // Misroute check: for items in an open (Planned / InTransit) shipment that has legs,

@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > Thing-Tag คือระบบติดตามอัจฉริยะที่ออกแบบมาเพื่อเกาะติดทุกการเคลื่อนไหวของสิ่งของทุกประเภท ตั้งแต่ต้นทางจนถึงปลายทางอย่างไร้รอยต่อ มอบประสบการณ์การขนส่งที่โปร่งใสและตรวจสอบได้จริง เหมือนกับระบบโลจิสติกส์มาตรฐานระดับสากล
 
-Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; carbon footprint; route planning; misroute detection; and return to sender. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
+Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; carbon footprint; route planning; misroute detection; and return to sender (manual and automatic). The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
 
 ## Commands
 
@@ -115,6 +115,10 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
 - **State only changes through events.** An item's `Status` and `CurrentLocationId` are never edited directly: `PUT` doesn't touch them, and there is no status endpoint. Every change is a `TrackingEvent`, a row that is never updated or deleted.
   - `EventType.ResultingStatus` decides the new status (null means the event is informational).
   - An event only updates the item if its `OccurredAt >= item.LastEventAt`. A back-dated event is kept in the history without rewinding the item.
+- **Journeys end at terminal events.** `EventType.IsTerminal` (`DELIVERED`, `RETURNED`) is enforced in `TrackingEventRecorder.EnsureJourneyOpenAsync`.
+  - An event with no `ShipmentId` (manual, scan, container) whose `OccurredAt >= item.LastEventAt` is rejected with `ITEM_JOURNEY_ENDED` when the item's latest non-voided event is terminal. Events being voided in the same unit of work don't count.
+  - It is allowed when the item joined an open shipment at or after that event. The check reads the database plus `ShipmentItems` staged in the change tracker.
+  - Back-dated events and shipment-operation events aren't checked.
 - **Mistakes are voided, not deleted.**
   - `POST /api/v1/TrackingEvents/{id}/void` flags the event (`IsVoided`, with who/when/why). `/correct` voids it and records a replacement linked by `ReplacesEventId`.
   - Both call `ITrackingEventRecorder.RecalculateItemStateAsync`, which rebuilds the item's status and location from its remaining non-voided events, including unsaved ones in the change tracker.
@@ -178,7 +182,14 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
   - `ShipmentResponse` adds `ReturnOf`, `ReturnShipment` and `FailedDeliveryAttempts`.
   - The latter two are filled by `EnrichAsync` for both detail and list. Failed attempts are distinct `OccurredAt` of non-voided `DELIVERY_FAILED` events with the shipment's id.
   - The list filter is `isReturn`.
-- **Not yet.** There's no auto-return after N attempts, terminal events aren't enforced (`EventType.IsTerminal` is stored but not checked), RMA isn't supported, and a return can't be undone, since `RETURNED` is system-managed.
+- **Automatic return.** `ReturnCoreAsync` stages a return without saving; the manual endpoint and `AutoReturnIfLimitReachedAsync` both use it.
+  - **Trigger.** `RecordEventAsync`, which now loads the shipment with details, calls the auto-return after staging a `DELIVERY_FAILED`, all in the same `SaveChanges`.
+  - **Conditions.** The shipment must be InTransit and not itself a return. The limit is `Shipment.MaxDeliveryAttempts ?? Returns:MaxDeliveryAttempts` (default 3), where `0` means never. Attempts are the distinct saved times plus the new one.
+  - **The return it creates.** It uses reason `MAX_ATTEMPTS_REACHED` (seeded in `Scripts/036`, allowed only for `RETURNED`) at the attempt time, from the destination.
+  - **Missing route.** With `routeIsOptional`, a missing route (`ROUTE_*` codes) creates the return without legs instead of failing the attempt.
+  - **Response.** `EventsRecordedResponse.ReturnTrackingNumber` reports the new return.
+  - `ShipmentResponse.MaxDeliveryAttempts` is the effective limit (passed into `From`).
+- **Not yet.** RMA isn't supported, and a return can't be undone, since `RETURNED` is system-managed.
 
 ### Carbon footprint
 

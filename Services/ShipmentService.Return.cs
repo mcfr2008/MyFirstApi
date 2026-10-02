@@ -5,27 +5,73 @@ using MyFirstApi.Models;
 
 namespace MyFirstApi.Services;
 
-// Return to sender (POST /Shipments/{id}/return-to-sender), all in one SaveChanges:
+// Return to sender, manual (POST /Shipments/{id}/return-to-sender) or automatic
+// (the Nth failed delivery attempt, see RecordEventAsync). Both go through ReturnCoreAsync,
+// which only stages changes; the caller saves once, so it is all-or-nothing:
 // 1. RETURNED (with a reason) is recorded on the original shipment for every item
 //    that wasn't delivered: all of them on an InTransit shipment, the refused ones on
 //    a Delivered one (proof of delivery with refused items).
 // 2. An InTransit original is closed as ReturnedToSender; a Delivered one stays Delivered.
 // 3. A Planned return shipment is created: receiver -> sender, from where the items
 //    are now to the original origin, holding the returned items, linked by ReturnOfShipmentId.
-// 4. With AutoRoute its legs are planned by the route planner. Planning runs before
-//    anything is saved, so a missing route fails the whole request.
+// 4. With AutoRoute its legs are planned by the route planner, before anything is staged.
 public partial class ShipmentService
 {
     private const string ReturnedEventCode = "RETURNED";
+    private const string AutoReturnReasonCode = "MAX_ATTEMPTS_REACHED";
 
     public async Task<ReturnToSenderResponse?> ReturnToSenderAsync(int id, ReturnToSenderRequest request)
     {
         var shipment = await ShipmentsWithDetails().FirstOrDefaultAsync(s => s.Id == id);
         if (shipment == null) return null;
 
+        var (returnShipment, itemsReturned, plan) = await ReturnCoreAsync(shipment, request, routeIsOptional: false);
+        await _context.SaveChangesAsync();
+
+        return new ReturnToSenderResponse
+        {
+            Original = (await GetShipmentByIdAsync(id))!,
+            ReturnShipment = (await GetShipmentByIdAsync(returnShipment.Id))!,
+            ItemsReturned = itemsReturned,
+            Plan = plan
+        };
+    }
+
+    // Called after a DELIVERY_FAILED has been staged for the shipment: returns it to the
+    // sender when the failed attempts reach its limit. Not for return shipments (that
+    // would bounce the items back again). Returns the new return shipment, if any.
+    private async Task<Shipment?> AutoReturnIfLimitReachedAsync(Shipment shipment, DateTime attemptAt)
+    {
+        if (shipment.Status != ShipmentStatus.InTransit || shipment.ReturnOfShipmentId != null) return null;
+
+        var limit = shipment.MaxDeliveryAttempts ?? _defaultMaxDeliveryAttempts;
+        if (limit <= 0) return null;
+
+        var attempts = await _context.TrackingEvents.AsNoTracking()
+            .Where(e => e.ShipmentId == shipment.Id && !e.IsVoided && e.EventType.Code == DeliveryFailedEventCode)
+            .Select(e => e.OccurredAt)
+            .Distinct()
+            .ToListAsync();
+        var count = attempts.Contains(attemptAt) ? attempts.Count : attempts.Count + 1;
+        if (count < limit) return null;
+
+        var (returnShipment, _, _) = await ReturnCoreAsync(shipment, new ReturnToSenderRequest
+        {
+            ReasonCode = AutoReturnReasonCode,
+            OccurredAt = new DateTimeOffset(DateTime.SpecifyKind(attemptAt, DateTimeKind.Utc)),
+            Note = $"Automatic return after {count} failed delivery attempts"
+        }, routeIsOptional: true);
+        return returnShipment;
+    }
+
+    // Stages the return (no SaveChanges). routeIsOptional: when no route back exists,
+    // create the return shipment without legs instead of failing (automatic returns).
+    private async Task<(Shipment ReturnShipment, int ItemsReturned, RoutePlanResponse? Plan)> ReturnCoreAsync(
+        Shipment shipment, ReturnToSenderRequest request, bool routeIsOptional)
+    {
         // Checked before the status so a returned shipment says where its return is.
         var existing = await _context.Shipments.AsNoTracking()
-            .Where(s => s.ReturnOfShipmentId == id)
+            .Where(s => s.ReturnOfShipmentId == shipment.Id)
             .Select(s => s.TrackingNumber)
             .FirstOrDefaultAsync();
         if (existing != null)
@@ -47,17 +93,25 @@ public partial class ShipmentService
         var now = DateTime.UtcNow;
         var occurredAt = request.OccurredAt?.UtcDateTime ?? now;
 
-        // Plan first: nothing is changed if there's no route back.
+        // Plan first: nothing is staged if there's no route back (unless the route is optional).
         List<ShipmentLegRequest> legs = [];
         RoutePlanResponse? plan = null;
         if (request.AutoRoute)
         {
-            (legs, plan) = await PlanLegsAsync(start, shipment.OriginLocation, occurredAt, new RouteShipmentRequest
+            try
             {
-                Objective = request.Objective,
-                FirstMileMinutes = request.FirstMileMinutes,
-                LastMileMinutes = request.LastMileMinutes
-            });
+                (legs, plan) = await PlanLegsAsync(start, shipment.OriginLocation, occurredAt, new RouteShipmentRequest
+                {
+                    Objective = request.Objective,
+                    FirstMileMinutes = request.FirstMileMinutes,
+                    LastMileMinutes = request.LastMileMinutes
+                });
+            }
+            catch (ApiException ex) when (routeIsOptional && ex.Definition.Code.StartsWith("ROUTE_"))
+            {
+                legs = [];
+                plan = null;
+            }
         }
 
         await RecordForItemsAsync(shipment, items, ReturnedEventCode, start.Id, occurredAt, request.Note,
@@ -96,14 +150,6 @@ public partial class ShipmentService
         }
         await ApplyLegsAsync(returnShipment, legs, start.Id, shipment.OriginLocationId);
 
-        await _context.SaveChangesAsync();
-
-        return new ReturnToSenderResponse
-        {
-            Original = (await GetShipmentByIdAsync(id))!,
-            ReturnShipment = (await GetShipmentByIdAsync(returnShipment.Id))!,
-            ItemsReturned = items.Count,
-            Plan = plan
-        };
+        return (returnShipment, items.Count, plan);
     }
 }

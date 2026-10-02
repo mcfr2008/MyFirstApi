@@ -87,6 +87,11 @@ public class ShipmentFields : IValidatableObject
     // Delivery must be confirmed with a receiver signature (proof of delivery). Default true.
     public bool? RequiresSignature { get; set; }
 
+    // Failed delivery attempts before an automatic return to sender.
+    // Empty = system default (Returns:MaxDeliveryAttempts), 0 = never return automatically.
+    [Range(0, 10)]
+    public int? MaxDeliveryAttempts { get; set; }
+
     [StringLength(2000)]
     public string? Notes { get; set; }
 
@@ -327,6 +332,8 @@ public class ShipmentResponse
     public int ItemCount { get; set; }
     // Delivery attempts that failed (distinct times DELIVERY_FAILED was recorded for the shipment).
     public int FailedDeliveryAttempts { get; set; }
+    // Effective limit before an automatic return (shipment's own, else the system default); 0 = never.
+    public int MaxDeliveryAttempts { get; set; }
     // On a return shipment: the original. On a returned original: its return shipment.
     public ReferenceSummary? ReturnOf { get; set; }
     public ReferenceSummary? ReturnShipment { get; set; }
@@ -336,7 +343,8 @@ public class ShipmentResponse
     public DateTime UpdatedAt { get; set; }
     public string? CreatedBy { get; set; }
 
-    public static ShipmentResponse From(Shipment shipment, int itemCount, bool hasProofOfDelivery = false)
+    // defaultMaxDeliveryAttempts: Returns:MaxDeliveryAttempts, used when the shipment has no limit of its own.
+    public static ShipmentResponse From(Shipment shipment, int itemCount, bool hasProofOfDelivery, int defaultMaxDeliveryAttempts)
     {
         var now = DateTime.UtcNow;
         var legs = shipment.Legs.OrderBy(l => l.Sequence).ToList();
@@ -361,6 +369,7 @@ public class ShipmentResponse
             DeliveredAt = shipment.DeliveredAt,
             CurrentLegSequence = legs.FirstOrDefault(l => !l.ActualArrival.HasValue)?.Sequence,
             ItemCount = itemCount,
+            MaxDeliveryAttempts = shipment.MaxDeliveryAttempts ?? defaultMaxDeliveryAttempts,
             ReturnOf = shipment.ReturnOfShipment == null
                 ? null
                 : new ReferenceSummary(shipment.ReturnOfShipment.Id, shipment.ReturnOfShipment.TrackingNumber, shipment.ReturnOfShipment.TrackingNumber),

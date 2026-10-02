@@ -1,0 +1,31 @@
+meta {
+  name: Delivered item joins a new shipment
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{locationId}},
+    "destinationLocationId": {{rpCustId}},
+    "tagCodes": [
+      "{{itemTagCode}}"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("arReuseShipmentId", res.body.id);
+}
