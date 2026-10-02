@@ -1,0 +1,26 @@
+meta {
+  name: Events on the returned original (409)
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{rtShipmentId}}/events
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "eventTypeCode": "OUT_FOR_DELIVERY"
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "SHIPMENT_STATUS_NOT_ALLOWED"
+}
+
+docs {
+  The items travel on the return shipment now.
+}

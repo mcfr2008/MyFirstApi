@@ -101,6 +101,12 @@ public partial class ShipmentService : IShipmentService
         {
             shipments = shipments.Where(s => s.Legs.Any(l => l.Mode == query.Mode.Value));
         }
+        if (query.IsReturn.HasValue)
+        {
+            shipments = query.IsReturn.Value
+                ? shipments.Where(s => s.ReturnOfShipmentId != null)
+                : shipments.Where(s => s.ReturnOfShipmentId == null);
+        }
         if (query.OffRoute.HasValue)
         {
             var misrouted = MisroutedShipmentIds();
@@ -131,12 +137,15 @@ public partial class ShipmentService : IShipmentService
             .Select(p => p.ShipmentId)
             .ToListAsync();
 
+        var items = page
+            .OrderByDescending(s => s.Id)
+            .Select(s => ShipmentResponse.From(s, itemCounts.GetValueOrDefault(s.Id), withProof.Contains(s.Id)))
+            .ToList();
+        await EnrichAsync(items);
+
         return new PagedResult<ShipmentResponse>
         {
-            Items = page
-                .OrderByDescending(s => s.Id)
-                .Select(s => ShipmentResponse.From(s, itemCounts.GetValueOrDefault(s.Id), withProof.Contains(s.Id)))
-                .ToList(),
+            Items = items,
             Page = query.Page,
             PageSize = query.PageSize,
             TotalCount = totalCount
@@ -394,6 +403,8 @@ public partial class ShipmentService : IShipmentService
         {
             throw Errors.ShipmentCancelled();
         }
+        // The items now travel on the return shipment; record events there.
+        EnsureStatus(shipment, "recordEvent", ShipmentStatus.Planned, ShipmentStatus.InTransit, ShipmentStatus.Delivered);
 
         var count = await RecordForShipmentAsync(shipment, request.EventTypeCode, request.LocationId,
             request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow, request.Note, null, isSystemManaged: false,
@@ -450,6 +461,7 @@ public partial class ShipmentService : IShipmentService
             .Include(s => s.ReceiverParty)
             .Include(s => s.OriginLocation)
             .Include(s => s.DestinationLocation)
+            .Include(s => s.ReturnOfShipment)
             .Include(s => s.Legs).ThenInclude(l => l.Carrier)
             .Include(s => s.Legs).ThenInclude(l => l.Vehicle)
             .Include(s => s.Legs).ThenInclude(l => l.OriginLocation)
@@ -460,7 +472,36 @@ public partial class ShipmentService : IShipmentService
     {
         var itemCount = await _context.ShipmentItems.CountAsync(si => si.ShipmentId == shipment.Id);
         var hasProof = await _context.ProofsOfDelivery.AnyAsync(p => p.ShipmentId == shipment.Id);
-        return ShipmentResponse.From(shipment, itemCount, hasProof);
+        var response = ShipmentResponse.From(shipment, itemCount, hasProof);
+        await EnrichAsync([response]);
+        return response;
+    }
+
+    // Fills what needs other rows: the linked return shipment and failed delivery attempts
+    // (distinct times DELIVERY_FAILED was recorded for the shipment, voided ones excluded).
+    private async Task EnrichAsync(IReadOnlyCollection<ShipmentResponse> responses)
+    {
+        var ids = responses.Select(r => r.Id).ToList();
+        var returns = await _context.Shipments.AsNoTracking()
+            .Where(s => s.ReturnOfShipmentId != null && ids.Contains(s.ReturnOfShipmentId.Value))
+            .Select(s => new { OriginalId = s.ReturnOfShipmentId!.Value, s.Id, s.TrackingNumber })
+            .ToDictionaryAsync(s => s.OriginalId);
+        var attempts = await _context.TrackingEvents.AsNoTracking()
+            .Where(e => e.ShipmentId != null && ids.Contains(e.ShipmentId.Value) && !e.IsVoided &&
+                        e.EventType.Code == DeliveryFailedEventCode)
+            .GroupBy(e => e.ShipmentId!.Value)
+            .Select(g => new { ShipmentId = g.Key, Count = g.Select(e => e.OccurredAt).Distinct().Count() })
+            .ToDictionaryAsync(g => g.ShipmentId, g => g.Count);
+
+        foreach (var response in responses)
+        {
+            if (returns.TryGetValue(response.Id, out var returnShipment))
+            {
+                response.ReturnShipment = new ReferenceSummary(
+                    returnShipment.Id, returnShipment.TrackingNumber, returnShipment.TrackingNumber);
+            }
+            response.FailedDeliveryAttempts = attempts.GetValueOrDefault(response.Id);
+        }
     }
 
     // Shared by /deliver and proof of delivery.

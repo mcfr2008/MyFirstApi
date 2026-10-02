@@ -135,6 +135,11 @@ public static class Errors
     public static readonly ErrorDefinition ShipmentStatusNotAllowedDef = new("SHIPMENT_STATUS_NOT_ALLOWED", Conflict,
         "Action '{action}' isn't allowed while the shipment is {status} (allowed when: {allowedStatuses}).",
         "ทำรายการ '{action}' ไม่ได้ขณะที่ Shipment อยู่ในสถานะ {status} (ทำได้เมื่อ: {allowedStatuses})");
+    public static readonly ErrorDefinition ReturnAlreadyCreatedDef = new("RETURN_ALREADY_CREATED", Conflict,
+        "Shipment {trackingNumber} already has return shipment {returnTrackingNumber}.",
+        "Shipment {trackingNumber} มี Shipment ขากลับ {returnTrackingNumber} อยู่แล้ว");
+    public static readonly ErrorDefinition NothingToReturnDef = new("NOTHING_TO_RETURN", BadRequest,
+        "Shipment {trackingNumber} has no undelivered items to return.", "Shipment {trackingNumber} ไม่มีสิ่งของที่ยังส่งไม่สำเร็จให้ตีกลับ");
     public static readonly ErrorDefinition ShipmentCancelledDef = new("SHIPMENT_CANCELLED", Conflict,
         "Shipment is cancelled.", "Shipment ถูกยกเลิกแล้ว");
     public static readonly ErrorDefinition ShipmentOnCustomsHoldDef = new("SHIPMENT_ON_CUSTOMS_HOLD", Conflict,
@@ -286,6 +291,9 @@ public static class Errors
         Create(ShipmentStatusNotAllowedDef, ("action", action), ("status", status.ToString()),
             ("allowedStatuses", allowed.Select(a => a.ToString()!).ToList()));
     public static ApiException ShipmentCancelled() => Create(ShipmentCancelledDef);
+    public static ApiException ReturnAlreadyCreated(string trackingNumber, string returnTrackingNumber) =>
+        Create(ReturnAlreadyCreatedDef, ("trackingNumber", trackingNumber), ("returnTrackingNumber", returnTrackingNumber));
+    public static ApiException NothingToReturn(string trackingNumber) => Create(NothingToReturnDef, ("trackingNumber", trackingNumber));
     public static ApiException ShipmentOnCustomsHold() => Create(ShipmentOnCustomsHoldDef);
     public static ApiException CustomsNotCleared(object customsStatus) => Create(CustomsNotClearedDef, ("customsStatus", customsStatus.ToString()));
     public static ApiException ShipmentHasNoItems(string trackingNumber) => Create(ShipmentHasNoItemsDef, ("trackingNumber", trackingNumber));

@@ -1,0 +1,18 @@
+meta {
+  name: 21 Return To Sender
+  seq: 21
+}
+
+auth {
+  mode: inherit
+}
+
+docs {
+  POST /api/v1/Shipments/{id}/return-to-sender: RETURNED (with a reason) for every
+  undelivered item, the original closed as ReturnedToSender, and a new linked return
+  shipment (receiver -> sender) auto-routed back over the lanes.
+
+  Uses the network from 18 Route Planning plus return lanes created here
+  (Chiang Mai branch -> hub -> Lat Krabang -> Bangna), and the Bangkok customer from 19.
+  Ends with a partial return: the refused item of the delivered shipment from 12 Shipments.
+}

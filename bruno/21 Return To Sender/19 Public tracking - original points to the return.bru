@@ -1,0 +1,18 @@
+meta {
+  name: Public tracking - original points to the return
+  type: http
+  seq: 19
+}
+
+get {
+  url: {{baseUrl}}/api/v1/PublicTracking/{{rtTrackingNumber}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "ReturnedToSender"
+  res.body.returnTrackingNumber: eq {{rtReturnTrackingNumber}}
+  res.body.events[0].eventCode: eq "RETURNED"
+}

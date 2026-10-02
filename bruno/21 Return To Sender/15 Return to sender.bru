@@ -1,0 +1,46 @@
+meta {
+  name: Return to sender
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{rtShipmentId}}/return-to-sender
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reasonCode": "RECIPIENT_ABSENT",
+    "locationId": {{rpCnxBrId}},
+    "note": "Two attempts, recipient never home"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.itemsReturned: eq 2
+  res.body.original.status: eq "ReturnedToSender"
+  res.body.original.returnShipment.id: eq {{rtReturnId}}
+  res.body.returnShipment.status: eq "Planned"
+  res.body.returnShipment.returnOf.id: eq {{rtShipmentId}}
+  res.body.returnShipment.sender.id: eq {{receiverPartyId}}
+  res.body.returnShipment.receiver.id: eq {{partyId}}
+  res.body.returnShipment.origin.id: eq {{rpCnxBrId}}
+  res.body.returnShipment.destination.id: eq {{arSenderLocId}}
+  res.body.returnShipment.itemCount: eq 2
+  res.body.returnShipment.legs.length: eq 4
+  res.body.returnShipment.legs[1].destination.id: eq {{rpLkbId}}
+  res.body.returnShipment.legs[3].mode: eq "Courier"
+  res.body.plan.best.legs.length: eq 3
+}
+
+script:post-response {
+  bru.setVar("rtReturnId", res.body.returnShipment.id);
+  bru.setVar("rtReturnTrackingNumber", res.body.returnShipment.trackingNumber);
+}
+
+docs {
+  Return trip: Chiang Mai branch -> hub -> Lat Krabang -> Bangna (lanes), then the last mile to the sender.
+}

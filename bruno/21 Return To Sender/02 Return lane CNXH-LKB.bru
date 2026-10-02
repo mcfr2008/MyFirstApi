@@ -1,0 +1,30 @@
+meta {
+  name: Return lane CNXH-LKB
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RT-CNXH-LKB-{{runId}}",
+    "name": "Return CNXH-LKB",
+    "originLocationId": {{rpCnxHubId}},
+    "destinationLocationId": {{rpLkbId}},
+    "mode": "Road",
+    "transitTimeMinutes": 600,
+    "distanceKm": 700,
+    "departureTimes": [
+      "21:00"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Nothing changed after the failed request
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/{{rtShipmentId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "InTransit"
+  res.body.returnShipment: isNull
+}

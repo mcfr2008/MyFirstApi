@@ -1,0 +1,31 @@
+meta {
+  name: Partial return - refused item of a delivered shipment
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{shipmentId}}/return-to-sender
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reasonCode": "REFUSED",
+    "autoRoute": false
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.itemsReturned: eq 1
+  res.body.original.status: eq "Delivered"
+  res.body.returnShipment.legs.length: eq 0
+  res.body.returnShipment.customsStatus: eq "Pending"
+  res.body.plan: isNull
+}
+
+docs {
+  The multimodal shipment from 12 was delivered with one refused item; only that item goes back (Tokyo -> Bangkok, so customs is Pending). autoRoute off: no lanes from Japan.
+}

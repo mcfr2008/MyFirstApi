@@ -25,6 +25,7 @@ public class PublicTrackingService : IPublicTrackingService
         var shipment = await _context.Shipments.AsNoTracking()
             .Include(s => s.OriginLocation)
             .Include(s => s.DestinationLocation)
+            .Include(s => s.ReturnOfShipment)
             .Include(s => s.Legs).ThenInclude(l => l.Carrier)
             .Include(s => s.Legs).ThenInclude(l => l.OriginLocation)
             .Include(s => s.Legs).ThenInclude(l => l.DestinationLocation)
@@ -36,6 +37,10 @@ public class PublicTrackingService : IPublicTrackingService
             .Where(si => si.ShipmentId == shipment.Id)
             .ToDictionaryAsync(si => si.TrackedItemId, si => si.AddedAt);
         var signed = await _context.ProofsOfDelivery.AnyAsync(p => p.ShipmentId == shipment.Id);
+        var returnTrackingNumber = await _context.Shipments.AsNoTracking()
+            .Where(s => s.ReturnOfShipmentId == shipment.Id)
+            .Select(s => s.TrackingNumber)
+            .FirstOrDefaultAsync();
         var legs = shipment.Legs.OrderBy(l => l.Sequence).ToList();
         var emissions = (await _carbonFootprintService.CalculateAsync(shipment.Id))!;
 
@@ -51,6 +56,8 @@ public class PublicTrackingService : IPublicTrackingService
             DeliveredAt = shipment.DeliveredAt,
             SignedForDelivery = signed,
             TotalPieces = itemsAddedAt.Count,
+            ReturnTrackingNumber = returnTrackingNumber,
+            ReturnOfTrackingNumber = shipment.ReturnOfShipment?.TrackingNumber,
             Emissions = new EmissionsSummary { Co2eKg = emissions.TotalCo2eKg, IsComplete = emissions.IsComplete },
             Legs = legs.Select(PublicLegResponse.From).ToList(),
             Events = await GetEventsAsync(shipment, itemsAddedAt)
@@ -76,7 +83,7 @@ public class PublicTrackingService : IPublicTrackingService
             DateTime? until = shipment.Status switch
             {
                 ShipmentStatus.Delivered => shipment.DeliveredAt,
-                ShipmentStatus.Cancelled => shipment.UpdatedAt,
+                ShipmentStatus.Cancelled or ShipmentStatus.ReturnedToSender => shipment.UpdatedAt,
                 _ => null
             };
 

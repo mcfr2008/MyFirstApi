@@ -1,0 +1,34 @@
+meta {
+  name: Create shipment Bangkok - Chiang Mai
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{arSenderLocId}},
+    "destinationLocationId": {{rpCustId}},
+    "plannedPickupAt": "2026-10-02T13:00:00+07:00",
+    "tagCodes": [
+      "{{rtItemA}}",
+      "{{rtItemB}}"
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("rtShipmentId", res.body.id);
+  bru.setVar("rtTrackingNumber", res.body.trackingNumber);
+}

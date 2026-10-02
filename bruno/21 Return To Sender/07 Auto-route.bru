@@ -1,0 +1,24 @@
+meta {
+  name: Auto-route
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{rtShipmentId}}/route
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 200
+  res.body.shipment.legs.length: eq 6
+}
+
+script:post-response {
+  bru.setVar("rtLeg1Id", res.body.shipment.legs[0].id);
+}

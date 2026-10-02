@@ -1,0 +1,23 @@
+meta {
+  name: Return - reason not valid for RETURNED (400)
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{rtShipmentId}}/return-to-sender
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reasonCode": "BUSINESS_CLOSED",
+    "locationId": {{rpCnxBrId}}
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "REASON_NOT_ALLOWED_FOR_EVENT"
+}

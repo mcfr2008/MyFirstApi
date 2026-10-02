@@ -205,6 +205,9 @@ public class AppDbContext : DbContext
             entity.HasIndex(s => s.TrackingNumber).IsUnique();
             entity.Property(s => s.Status).HasConversion<string>();
             entity.Property(s => s.CustomsStatus).HasConversion<string>();
+            entity.HasIndex(s => s.ReturnOfShipmentId).IsUnique().HasFilter("\"ReturnOfShipmentId\" IS NOT NULL");
+            entity.HasOne(s => s.ReturnOfShipment).WithMany()
+                .HasForeignKey(s => s.ReturnOfShipmentId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(s => s.SenderParty).WithMany()
                 .HasForeignKey(s => s.SenderPartyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(s => s.ReceiverParty).WithMany()
