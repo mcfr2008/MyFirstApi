@@ -1,0 +1,27 @@
+meta {
+  name: Create item A
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackedItems
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Return A {{runId}}",
+    "weightKg": 3
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("rtItemA", res.body.tagCode);
+  bru.setVar("rtItemAId", res.body.id);
+}

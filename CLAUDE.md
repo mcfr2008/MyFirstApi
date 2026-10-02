@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > Thing-Tag คือระบบติดตามอัจฉริยะที่ออกแบบมาเพื่อเกาะติดทุกการเคลื่อนไหวของสิ่งของทุกประเภท ตั้งแต่ต้นทางจนถึงปลายทางอย่างไร้รอยต่อ มอบประสบการณ์การขนส่งที่โปร่งใสและตรวจสอบได้จริง เหมือนกับระบบโลจิสติกส์มาตรฐานระดับสากล
 
-Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; carbon footprint; route planning; and misroute detection. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
+Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; carbon footprint; route planning; misroute detection; and return to sender. The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
 
 ## Commands
 
@@ -136,7 +136,7 @@ ASP.NET Core 10 controller-based Web API, PostgreSQL via EF Core (Npgsql), JWT b
     - legs must chain from origin to destination;
     - a vehicle or carrier must match the leg's mode (Road and Courier count as one family);
     - the document type defaults from the mode (B/L, AWB, ...).
-  - The lifecycle is `Planned → InTransit → Delivered`, or `Planned → Cancelled`:
+  - The lifecycle is `Planned → InTransit → Delivered`, `Planned → Cancelled`, or `InTransit → ReturnedToSender` (see Return to sender):
     - depart/arrive endpoints set ATD/ATA and record mode-specific events for every item;
     - a customs `Hold` blocks departure and delivery;
     - international shipments (origin and destination in different countries) start with customs `Pending`.
@@ -157,6 +157,28 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
 - **Storage.** `IFileStorage` is implemented by `LocalFileStorage` (disk under `FileStorage:RootPath`, default `App_Data/files`, which is git-ignored and a Docker volume). A cloud implementation can replace it.
   - `StoredFile.Id` is a random GUID used in `GET /api/v1/Files/{id}`, and `Sha256` is kept as tamper evidence and the ETag.
 - **JSON keys.** `ProofOfDelivery.RefusedItems` is jsonb with camelCase keys (`[JsonPropertyName]`), so SQL like `->>'reasonCode'` matches the API.
+
+### Return to sender
+
+- **Endpoint.** `POST /api/v1/Shipments/{id}/return-to-sender` is `[Idempotent]` and lives in `ShipmentService.Return.cs`. It does everything in one `SaveChanges`.
+- **Checks, in order.**
+  1. An existing return (`RETURN_ALREADY_CREATED`) is checked first, so a returned shipment names its return.
+  2. The status must be InTransit or Delivered.
+  3. Items are the shipment's items with `Status != Delivered`; none gives `NOTHING_TO_RETURN`. A Delivered shipment only returns its refused or undelivered items.
+- **Plan before writing.** With `AutoRoute`, `PlanLegsAsync` (shared with auto-route) plans from `locationId` (default: the destination) back to the original origin *before* anything is written, so a missing route changes nothing.
+- **Writes.**
+  - `RETURNED` with the reason, system-managed, carrying the original `ShipmentId`, which also skips the misroute check.
+  - InTransit → `ReturnedToSender`. A Delivered shipment keeps its status.
+  - A new Planned shipment: parties swapped, `ReturnOfShipmentId` set, customs `Pending` when the countries differ, `RequiresSignature` true.
+  - `ShipmentItems` rows are added directly. The open-shipment check reads the database, where the original is still InTransit, so it would wrongly reject them.
+  - Legs go through `ApplyLegsAsync`.
+- **Status semantics.** `ReturnedToSender` is closed. Open means only Planned/InTransit everywhere, and `RecordEventAsync` rejects it (`recordEvent`). Public tracking ends a returned original's item-event window at `UpdatedAt`.
+- **Schema.** `Shipments.ReturnOfShipmentId` has a partial unique index, so there is one return per shipment (`Scripts/035`).
+- **Responses.**
+  - `ShipmentResponse` adds `ReturnOf`, `ReturnShipment` and `FailedDeliveryAttempts`.
+  - The latter two are filled by `EnrichAsync` for both detail and list. Failed attempts are distinct `OccurredAt` of non-voided `DELIVERY_FAILED` events with the shipment's id.
+  - The list filter is `isReturn`.
+- **Not yet.** There's no auto-return after N attempts, terminal events aren't enforced (`EventType.IsTerminal` is stored but not checked), RMA isn't supported, and a return can't be undone, since `RETURNED` is system-managed.
 
 ### Carbon footprint
 

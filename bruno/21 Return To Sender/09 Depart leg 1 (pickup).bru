@@ -1,0 +1,22 @@
+meta {
+  name: Depart leg 1 (pickup)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{rtShipmentId}}/legs/{{rtLeg1Id}}/depart
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "note": "Picked up"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "InTransit"
+}

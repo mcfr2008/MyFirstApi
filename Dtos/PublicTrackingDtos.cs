@@ -19,6 +19,9 @@ public class PublicTrackingResponse
     // Delivery was confirmed with a receiver signature.
     public bool SignedForDelivery { get; set; }
     public int TotalPieces { get; set; }
+    // Returned to sender: the return shipment to follow. On a return shipment: the original.
+    public string? ReturnTrackingNumber { get; set; }
+    public string? ReturnOfTrackingNumber { get; set; }
     // Carbon footprint of the whole shipment (kg CO2e, well-to-wheel).
     public EmissionsSummary Emissions { get; set; } = null!;
     public List<PublicLegResponse> Legs { get; set; } = new();

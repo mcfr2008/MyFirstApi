@@ -5,7 +5,8 @@ using MyFirstApi.Interfaces;
 
 namespace MyFirstApi.Controllers;
 
-// Lifecycle: Planned -> (legs depart/arrive) InTransit -> Delivered, or Planned -> Cancelled.
+// Lifecycle: Planned -> (legs depart/arrive) InTransit -> Delivered, Planned -> Cancelled,
+// or InTransit -> ReturnedToSender (items continue on a linked return shipment).
 // Permission policies are intentionally not applied yet.
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
@@ -102,6 +103,17 @@ public class ShipmentsController : ControllerBase
         if (check == null) return NotFound();
 
         return Ok(check);
+    }
+
+    // Undelivered items go back to the sender on a new, linked (and optionally auto-routed) return shipment.
+    [Idempotent]
+    [HttpPost("{id:int}/return-to-sender")]
+    public async Task<IActionResult> ReturnToSender(int id, ReturnToSenderRequest request)
+    {
+        var result = await _shipmentService.ReturnToSenderAsync(id, request);
+        if (result == null) return NotFound();
+
+        return Ok(result);
     }
 
     [HttpGet("{id:int}/items")]

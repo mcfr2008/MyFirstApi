@@ -1,0 +1,21 @@
+meta {
+  name: List return shipments
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments?isReturn=true&search={{rtReturnTrackingNumber}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  isReturn: true
+  search: {{rtReturnTrackingNumber}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 1
+}

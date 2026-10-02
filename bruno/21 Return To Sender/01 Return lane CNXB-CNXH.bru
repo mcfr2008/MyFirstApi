@@ -1,0 +1,27 @@
+meta {
+  name: Return lane CNXB-CNXH
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Lanes
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "code": "RT-CNXB-CNXH-{{runId}}",
+    "name": "Return CNXB-CNXH",
+    "originLocationId": {{rpCnxBrId}},
+    "destinationLocationId": {{rpCnxHubId}},
+    "mode": "Courier",
+    "transitTimeMinutes": 40,
+    "distanceKm": 12
+  }
+}
+
+assert {
+  res.status: eq 201
+}

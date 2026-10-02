@@ -1,0 +1,17 @@
+meta {
+  name: Item is returned, at the Chiang Mai branch
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/api/v1/TrackedItems/{{rtItemAId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "Returned"
+  res.body.currentLocation.id: eq {{rpCnxBrId}}
+}

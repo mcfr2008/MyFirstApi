@@ -48,6 +48,9 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
   - The ETA counts the wait for each truck, train or vessel's next scheduled departure. The API also suggests alternative routes.
   - **Auto-route a shipment.** One call plans the route and fills in the shipment's legs, including first-mile pickup and last-mile delivery.
   - **Misroute detection.** A scan at a hub that isn't on the shipment's route is flagged right away in the scan response, and misrouted shipments can be listed.
+- **Return to sender**
+  - One call sends undelivered items back. It records `RETURNED` with a reason, closes the shipment as `ReturnedToSender`, and creates a linked return shipment that is auto-routed back to the sender.
+  - Failed delivery attempts are counted, and public tracking points to the return shipment.
 - **Carbon footprint (CO₂e)**
   - Every shipment's greenhouse-gas emissions per leg and in total, following **ISO 14083 / GLEC Framework** (well-to-wheel). The public tracking page shows the total.
 - **Safe retries (idempotency keys)**
@@ -123,6 +126,7 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
 | Containers | master-data endpoints (below) + `GET /{id}/contents` · `POST /{id}/load` · `/unload` · `/scan` |
 | Shipments | `GET/POST /api/v1/Shipments` · `GET/PUT /{id}` · `GET /by-tracking/{no}` · `PUT /{id}/legs/{legId}` · `POST /{id}/legs/{legId}/depart` · `/arrive` · `GET/POST /{id}/items` · `DELETE /{id}/items/{itemId}` · `POST /{id}/customs` · `/events` · `/deliver` · `/cancel` |
 | Proof of delivery | `POST /api/v1/Shipments/{id}/proof-of-delivery` (multipart) · `GET /api/v1/Shipments/{id}/proof-of-delivery` |
+| Return to sender | `POST /api/v1/Shipments/{id}/return-to-sender` · `GET /api/v1/Shipments?isReturn=true` |
 | Route planning | `POST /api/v1/Routes/plan` · `POST /api/v1/Shipments/{id}/route` · `GET /api/v1/Shipments/{id}/route-check` · `GET /api/v1/Shipments?offRoute=true` · `GET /api/v1/TrackingEvents?offRoute=true` |
 | Carbon footprint | `GET /api/v1/Shipments/{id}/emissions` · master data `EmissionFactors` (below) |
 | Public tracking | `GET /api/v1/PublicTracking/{trackingNumber}` (no login, rate limited) |
@@ -257,6 +261,33 @@ When an item is scanned at a location that is **not on the route** of the open (
 - Scanning the item back on route clears it, and so does a re-route that adds that location. The flagged scan stays in the history.
 - Voiding a wrong scan removes it from both.
 
+## Return to sender
+
+`POST /api/v1/Shipments/{id}/return-to-sender` sends a shipment's **undelivered** items back to the sender:
+
+```json
+{ "reasonCode": "RECIPIENT_ABSENT", "locationId": 12, "note": "Two attempts, nobody home",
+  "autoRoute": true, "objective": "Fastest", "firstMileMinutes": 120, "lastMileMinutes": 240 }
+```
+
+| Step | What happens |
+|---|---|
+| Items | **InTransit** shipment: all items. **Delivered** shipment: only the items that weren't delivered, such as items refused at proof of delivery (a partial return). |
+| Events | `RETURNED` with the reason, which must be allowed for `RETURNED`: `RECIPIENT_ABSENT`, `WRONG_ADDRESS`, `REFUSED` or `UNREACHABLE`. It's recorded at `locationId` (default: the destination) on the original shipment, as system-managed. The items' status becomes `Returned`. |
+| Original | An InTransit shipment becomes **`ReturnedToSender`**, which is closed: no more shipment events. A Delivered shipment stays Delivered. |
+| Return shipment | A new **Planned** shipment: receiver → sender, from `locationId` back to the original origin, holding the returned items, linked by `returnOf` / `returnShipment` |
+| Route | With `autoRoute` (default), the route planner builds the return legs. If there's no route back, the whole request fails and nothing changes. Set `autoRoute: false` to create it without legs. |
+
+**Also new**
+- **Failed attempts.** Shipments show `failedDeliveryAttempts`, the distinct times `DELIVERY_FAILED` was recorded.
+- **Public tracking.** It shows `returnTrackingNumber` on the original and `returnOfTrackingNumber` on the return.
+- **Listing returns.** `GET /Shipments?isReturn=true` lists return shipments.
+
+**Errors**
+- `409 RETURN_ALREADY_CREATED`: one return per shipment.
+- `400 NOTHING_TO_RETURN`: everything was delivered.
+- `409 SHIPMENT_STATUS_NOT_ALLOWED`: the shipment is Planned (cancel it instead) or already closed.
+
 ## Carbon footprint
 
 `GET /api/v1/Shipments/{id}/emissions` calculates the shipment's greenhouse-gas emissions with the **ISO 14083 / GLEC Framework** method (well-to-wheel CO₂e):
@@ -361,7 +392,7 @@ export Jwt__Key="<long-random-secret>"
 
 #### 3. Create the schema
 
-The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `034`). Re-running them only applies what's new.
+The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `035`). Re-running them only applies what's new.
 
 With `psql` installed on the host:
 
@@ -391,6 +422,7 @@ done
 | `032` | Lanes (scheduled one-way connections between network points) |
 | `033` | Emission factors (gCO₂e per tonne-km per mode / carrier) with indicative defaults |
 | `034` | `TrackingEvents.OffRouteShipmentId` (misroute flag) |
+| `035` | Return to sender: `Shipments.ReturnOfShipmentId`, status `ReturnedToSender` |
 
 #### 4. Run
 
@@ -434,7 +466,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (343 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (366 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -505,6 +537,8 @@ Before deploying beyond local development:
 - [x] Route planner: fastest / shortest / lowest-emission routes with schedule-aware ETA and alternatives
 - [x] Auto-route a shipment: legs (first mile, lanes, last mile) generated from a plan
 - [x] Misroute detection: off-route scans flagged on record, route check and exception list
+- [x] Return to sender: RETURNED + linked, auto-routed return shipment, failed-attempt count
+- [ ] Returns: automatic return after N failed attempts, enforcing terminal events, customer returns (RMA)
 - [ ] Route planning: auto-generated shipment legs, misroute detection
 - [ ] Automated tests, CI/CD, health checks
 

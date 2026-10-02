@@ -223,6 +223,8 @@ public class ShipmentQuery : PagedQuery
     public TransportMode? Mode { get; set; }
     // true = open shipments with an item currently at a location off their route (misrouted).
     public bool? OffRoute { get; set; }
+    // true = return shipments only; false = no return shipments.
+    public bool? IsReturn { get; set; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<LegStatus>))]
@@ -323,6 +325,11 @@ public class ShipmentResponse
     // Sequence of the leg in progress or next to depart (null when all legs arrived).
     public int? CurrentLegSequence { get; set; }
     public int ItemCount { get; set; }
+    // Delivery attempts that failed (distinct times DELIVERY_FAILED was recorded for the shipment).
+    public int FailedDeliveryAttempts { get; set; }
+    // On a return shipment: the original. On a returned original: its return shipment.
+    public ReferenceSummary? ReturnOf { get; set; }
+    public ReferenceSummary? ReturnShipment { get; set; }
     public string? Notes { get; set; }
     public List<ShipmentLegResponse> Legs { get; set; } = new();
     public DateTime CreatedAt { get; set; }
@@ -354,6 +361,9 @@ public class ShipmentResponse
             DeliveredAt = shipment.DeliveredAt,
             CurrentLegSequence = legs.FirstOrDefault(l => !l.ActualArrival.HasValue)?.Sequence,
             ItemCount = itemCount,
+            ReturnOf = shipment.ReturnOfShipment == null
+                ? null
+                : new ReferenceSummary(shipment.ReturnOfShipment.Id, shipment.ReturnOfShipment.TrackingNumber, shipment.ReturnOfShipment.TrackingNumber),
             Notes = shipment.Notes,
             Legs = legs.Select(l => ShipmentLegResponse.From(l, now)).ToList(),
             CreatedAt = shipment.CreatedAt,
@@ -423,4 +433,50 @@ public class OffRouteEventResponse
     public ReferenceSummary Item { get; set; } = null!;
     public ReferenceSummary Location { get; set; } = null!;
     public string EventTypeCode { get; set; } = string.Empty;
+}
+
+// Send a shipment's undelivered items back to the sender on a new, linked return shipment.
+public class ReturnToSenderRequest : IValidatableObject
+{
+    // A reason allowed for RETURNED, e.g. RECIPIENT_ABSENT, WRONG_ADDRESS, REFUSED, UNREACHABLE.
+    [Required]
+    [StringLength(50)]
+    public string ReasonCode { get; set; } = string.Empty;
+
+    [StringLength(2000)]
+    public string? Note { get; set; }
+
+    // When the return was decided (the RETURNED event). Defaults to now.
+    public DateTimeOffset? OccurredAt { get; set; }
+
+    // Where the items are now, i.e. where the return trip starts. Defaults to the shipment's destination.
+    public int? LocationId { get; set; }
+
+    // Plan the return trip's legs with the route planner (needs lanes back to the sender).
+    public bool AutoRoute { get; set; } = true;
+
+    public RouteObjective Objective { get; set; } = RouteObjective.Fastest;
+
+    [Range(0, 2880)]
+    public int FirstMileMinutes { get; set; } = 120;
+
+    [Range(0, 2880)]
+    public int LastMileMinutes { get; set; } = 240;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (OccurredAt.HasValue && OccurredAt.Value > DateTimeOffset.UtcNow.AddMinutes(10))
+        {
+            yield return new ValidationResult("OccurredAt cannot be in the future.", [nameof(OccurredAt)]);
+        }
+    }
+}
+
+public class ReturnToSenderResponse
+{
+    public ShipmentResponse Original { get; set; } = null!;
+    public ShipmentResponse ReturnShipment { get; set; } = null!;
+    public int ItemsReturned { get; set; }
+    // The return trip's plan, when AutoRoute was on.
+    public RoutePlanResponse? Plan { get; set; }
 }

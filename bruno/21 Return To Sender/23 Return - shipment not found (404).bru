@@ -1,0 +1,21 @@
+meta {
+  name: Return - shipment not found (404)
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/999999/return-to-sender
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reasonCode": "REFUSED"
+  }
+}
+
+assert {
+  res.status: eq 404
+}

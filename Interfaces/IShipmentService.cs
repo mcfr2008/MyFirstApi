@@ -33,4 +33,7 @@ public interface IShipmentService
     Task<ProofOfDeliveryResponse?> GetProofOfDeliveryAsync(int id);
 
     Task<ShipmentResponse?> CancelAsync(int id);
+
+    // Records RETURNED for undelivered items, closes the shipment and creates a linked return shipment.
+    Task<ReturnToSenderResponse?> ReturnToSenderAsync(int id, ReturnToSenderRequest request);
 }

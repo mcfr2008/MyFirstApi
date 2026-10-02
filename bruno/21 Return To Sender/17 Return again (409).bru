@@ -1,0 +1,23 @@
+meta {
+  name: Return again (409)
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{rtShipmentId}}/return-to-sender
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reasonCode": "RECIPIENT_ABSENT"
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "RETURN_ALREADY_CREATED"
+  res.body.args.returnTrackingNumber: eq {{rtReturnTrackingNumber}}
+}

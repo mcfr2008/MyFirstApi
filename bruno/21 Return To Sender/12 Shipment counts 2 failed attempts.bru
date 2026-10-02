@@ -1,0 +1,21 @@
+meta {
+  name: Shipment counts 2 failed attempts
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/{{rtShipmentId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.failedDeliveryAttempts: eq 2
+  res.body.returnShipment: isNull
+}
+
+docs {
+  Distinct times DELIVERY_FAILED was recorded (one per attempt, however many items).
+}

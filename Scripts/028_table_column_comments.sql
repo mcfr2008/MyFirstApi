@@ -204,7 +204,7 @@ COMMENT ON COLUMN "Shipments"."SenderPartyId" IS 'Sender (FK Parties) | ผู�
 COMMENT ON COLUMN "Shipments"."ReceiverPartyId" IS 'Receiver (FK Parties) | ผู้รับ (อ้างอิง Parties)';
 COMMENT ON COLUMN "Shipments"."OriginLocationId" IS 'Origin (FK Locations) | ต้นทาง (อ้างอิง Locations)';
 COMMENT ON COLUMN "Shipments"."DestinationLocationId" IS 'Destination (FK Locations) | ปลายทาง (อ้างอิง Locations)';
-COMMENT ON COLUMN "Shipments"."Status" IS 'ShipmentStatus: Planned, InTransit, Delivered, Cancelled | สถานะ: วางแผน กำลังขนส่ง ส่งสำเร็จ ยกเลิก';
+COMMENT ON COLUMN "Shipments"."Status" IS 'ShipmentStatus: Planned, InTransit, Delivered, Cancelled, ReturnedToSender | สถานะ: วางแผน กำลังขนส่ง ส่งสำเร็จ ยกเลิก ตีกลับผู้ส่ง';
 COMMENT ON COLUMN "Shipments"."Incoterm" IS 'Incoterms 2020 rule, e.g. FOB, CIF, DAP (international) | เงื่อนไขการส่งมอบ Incoterms 2020 เช่น FOB, CIF, DAP (ระหว่างประเทศ)';
 COMMENT ON COLUMN "Shipments"."CustomsStatus" IS 'CustomsStatus: NotRequired, Pending, InProgress, Hold, Cleared | สถานะศุลกากร: ไม่ต้องผ่าน รอดำเนินการ กำลังดำเนินการ ถูกกัก ผ่านแล้ว';
 COMMENT ON COLUMN "Shipments"."PlannedPickupAt" IS 'Planned pickup time (UTC) | เวลารับของตามแผน (UTC)';

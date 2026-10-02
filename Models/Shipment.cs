@@ -8,7 +8,9 @@ public enum ShipmentStatus
     Planned,
     InTransit,
     Delivered,
-    Cancelled
+    Cancelled,
+    // Not delivered; the items went back to the sender on a return shipment.
+    ReturnedToSender
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<CustomsStatus>))]
@@ -49,6 +51,9 @@ public class Shipment
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public string? CreatedBy { get; set; }
+    // Set on a return shipment: the shipment whose undelivered items it brings back.
+    public int? ReturnOfShipmentId { get; set; }
+    public Shipment? ReturnOfShipment { get; set; }
     public List<ShipmentLeg> Legs { get; set; } = new();
     public List<ShipmentItem> Items { get; set; } = new();
 }

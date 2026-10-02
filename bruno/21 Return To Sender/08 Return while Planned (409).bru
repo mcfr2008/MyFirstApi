@@ -1,0 +1,27 @@
+meta {
+  name: Return while Planned (409)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{rtShipmentId}}/return-to-sender
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reasonCode": "RECIPIENT_ABSENT"
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "SHIPMENT_STATUS_NOT_ALLOWED"
+  res.body.args.action: eq "returnToSender"
+}
+
+docs {
+  Before departure there's nothing to return; cancel the shipment instead.
+}
