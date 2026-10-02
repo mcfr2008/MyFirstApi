@@ -65,6 +65,9 @@ public static class Errors
         "รหัสสาเหตุ {reason} ใช้กับเหตุการณ์ {eventType} ไม่ได้ (ใช้ได้กับ: {allowedEventTypes})");
     public static readonly ErrorDefinition ReasonNoteRequiredDef = new("REASON_NOTE_REQUIRED", BadRequest,
         "Reason code {reason} requires a note explaining what happened.", "รหัสสาเหตุ {reason} ต้องเขียนหมายเหตุอธิบายเพิ่มเติม");
+    public static readonly ErrorDefinition ItemJourneyEndedDef = new("ITEM_JOURNEY_ENDED", Conflict,
+        "These items finished their journey and aren't in an open shipment since: {items}. Add them to a shipment, or void the final event if it was a mistake.",
+        "สิ่งของเหล่านี้สิ้นสุดการเดินทางแล้วและไม่ได้อยู่ใน Shipment ที่เปิดอยู่หลังจากนั้น: {items} ให้เพิ่มเข้า Shipment ใหม่ หรือยกเลิกเหตุการณ์สุดท้ายถ้าบันทึกผิด");
     public static readonly ErrorDefinition EventAlreadyVoidedDef = new("EVENT_ALREADY_VOIDED", Conflict,
         "Event is already voided.", "เหตุการณ์นี้ถูกยกเลิกไปแล้ว");
     public static readonly ErrorDefinition EventSystemManagedDef = new("EVENT_SYSTEM_MANAGED", Conflict,
@@ -215,6 +218,7 @@ public static class Errors
 
     public static ApiException IdempotencyKeyInvalid(int maxLength) => Create(IdempotencyKeyInvalidDef, ("maxLength", maxLength));
     public static ApiException IdempotencyKeyReused(string key) => Create(IdempotencyKeyReusedDef, ("key", key));
+    public static ApiException ItemJourneyEnded(List<string> items) => Create(ItemJourneyEndedDef, ("items", items));
     public static ApiException InvalidCursor() => Create(InvalidCursorDef);
     public static ApiException ReferenceNotFound(string field, int id) => Create(ReferenceNotFoundDef, ("field", field), ("id", id));
     public static ApiException ReferenceInactive(string field, string code) => Create(ReferenceInactiveDef, ("field", field), ("code", code));

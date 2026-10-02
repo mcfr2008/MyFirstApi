@@ -1,0 +1,15 @@
+meta {
+  name: Cancel the reuse shipment
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{arReuseShipmentId}}/cancel
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}

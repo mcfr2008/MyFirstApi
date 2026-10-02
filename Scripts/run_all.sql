@@ -39,3 +39,4 @@
 \ir 033_emission_factors.sql
 \ir 034_tracking_events_off_route.sql
 \ir 035_return_to_sender.sql
+\ir 036_auto_return.sql

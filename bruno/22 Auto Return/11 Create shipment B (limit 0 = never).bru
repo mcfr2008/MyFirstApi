@@ -1,0 +1,35 @@
+meta {
+  name: Create shipment B (limit 0 = never)
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{arSenderLocId}},
+    "destinationLocationId": {{rpCustId}},
+    "plannedPickupAt": "2026-10-02T13:00:00+07:00",
+    "tagCodes": [
+      "{{arBTag}}"
+    ],
+    "maxDeliveryAttempts": 0
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.maxDeliveryAttempts: eq 0
+}
+
+script:post-response {
+  bru.setVar("arBShipmentId", res.body.id);
+  bru.setVar("arBTrackingNumber", res.body.trackingNumber);
+}

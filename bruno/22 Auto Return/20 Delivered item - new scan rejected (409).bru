@@ -1,0 +1,30 @@
+meta {
+  name: Delivered item - new scan rejected (409)
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents/scan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": [
+      "{{itemTagCode}}"
+    ],
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{locationId}}
+  }
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "ITEM_JOURNEY_ENDED"
+}
+
+docs {
+  Delivered in 12 Shipments: its journey ended.
+}

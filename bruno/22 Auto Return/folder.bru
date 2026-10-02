@@ -1,0 +1,18 @@
+meta {
+  name: 22 Auto Return
+  seq: 22
+}
+
+auth {
+  mode: inherit
+}
+
+docs {
+  1. Automatic return: the Nth DELIVERY_FAILED on an InTransit shipment returns it to the
+     sender in the same request (reason MAX_ATTEMPTS_REACHED). Limit = the shipment's
+     maxDeliveryAttempts, else Returns:MaxDeliveryAttempts (3); 0 = never.
+  2. Terminal events: after DELIVERED / RETURNED, new manual / scan events are rejected
+     (ITEM_JOURNEY_ENDED) until the item joins an open shipment again.
+
+  Uses the network and return lanes from 18 and 21, and the delivered item from 12.
+}

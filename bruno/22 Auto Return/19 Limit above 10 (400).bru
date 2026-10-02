@@ -1,0 +1,26 @@
+meta {
+  name: Limit above 10 (400)
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{partyId}},
+    "receiverPartyId": {{receiverPartyId}},
+    "originLocationId": {{arSenderLocId}},
+    "destinationLocationId": {{rpCustId}},
+    "maxDeliveryAttempts": 11
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.errors.MaxDeliveryAttempts: isDefined
+}

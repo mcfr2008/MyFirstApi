@@ -1,0 +1,18 @@
+meta {
+  name: Shipment A is returned to sender
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Shipments/{{arAShipmentId}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "ReturnedToSender"
+  res.body.failedDeliveryAttempts: eq 2
+  res.body.returnShipment.code: eq {{arAReturnTrackingNumber}}
+}

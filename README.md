@@ -51,6 +51,8 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
 - **Return to sender**
   - One call sends undelivered items back. It records `RETURNED` with a reason, closes the shipment as `ReturnedToSender`, and creates a linked return shipment that is auto-routed back to the sender.
   - Failed delivery attempts are counted, and public tracking points to the return shipment.
+  - **Automatic return** after N failed attempts (per shipment, default 3).
+  - **Journeys end** at `DELIVERED` / `RETURNED`: later scans are rejected until the item joins a new shipment.
 - **Carbon footprint (CO₂e)**
   - Every shipment's greenhouse-gas emissions per leg and in total, following **ISO 14083 / GLEC Framework** (well-to-wheel). The public tracking page shows the total.
 - **Safe retries (idempotency keys)**
@@ -283,6 +285,26 @@ When an item is scanned at a location that is **not on the route** of the open (
 - **Public tracking.** It shows `returnTrackingNumber` on the original and `returnOfTrackingNumber` on the return.
 - **Listing returns.** `GET /Shipments?isReturn=true` lists return shipments.
 
+### Automatic return after N failed attempts
+
+Record a failed delivery on the shipment with `POST /Shipments/{id}/events` (`DELIVERY_FAILED` + a reason). When the shipment is InTransit and its failed attempts reach the limit, it is **returned to sender in the same request**:
+- **Reason.** The return uses the reason `MAX_ATTEMPTS_REACHED`.
+- **Route.** The return is auto-routed from the receiver's address. If there's no route back, it is created without legs, so the failed attempt is still recorded.
+- **Response.** It includes `returnTrackingNumber`.
+
+| Setting | Meaning |
+|---|---|
+| `maxDeliveryAttempts` on a shipment (create/update, 0–10) | That shipment's limit. `0` = never return automatically |
+| `Returns:MaxDeliveryAttempts` in `appsettings.json` | Default limit (3) for shipments without their own |
+
+Return shipments never return automatically, so items can't bounce back and forth. Shipments show the effective `maxDeliveryAttempts` and `failedDeliveryAttempts`.
+
+### Journeys end at terminal events
+
+`DELIVERED` and `RETURNED` are **terminal** event types (`isTerminal`). After one, new manual, scan or container events for that item return `409 ITEM_JOURNEY_ENDED`, **unless** the item has joined an open shipment since then, such as its return shipment or a new shipment. The journey then continues.
+- Events recorded by shipment operations aren't affected.
+- **Back-dated** events (before the terminal one) are still allowed as history corrections.
+
 **Errors**
 - `409 RETURN_ALREADY_CREATED`: one return per shipment.
 - `400 NOTHING_TO_RETURN`: everything was delivered.
@@ -392,7 +414,7 @@ export Jwt__Key="<long-random-secret>"
 
 #### 3. Create the schema
 
-The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `035`). Re-running them only applies what's new.
+The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `036`). Re-running them only applies what's new.
 
 With `psql` installed on the host:
 
@@ -423,6 +445,7 @@ done
 | `033` | Emission factors (gCO₂e per tonne-km per mode / carrier) with indicative defaults |
 | `034` | `TrackingEvents.OffRouteShipmentId` (misroute flag) |
 | `035` | Return to sender: `Shipments.ReturnOfShipmentId`, status `ReturnedToSender` |
+| `036` | Automatic return: `Shipments.MaxDeliveryAttempts`, reason `MAX_ATTEMPTS_REACHED` |
 
 #### 4. Run
 
@@ -466,7 +489,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (366 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (391 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -538,7 +561,8 @@ Before deploying beyond local development:
 - [x] Auto-route a shipment: legs (first mile, lanes, last mile) generated from a plan
 - [x] Misroute detection: off-route scans flagged on record, route check and exception list
 - [x] Return to sender: RETURNED + linked, auto-routed return shipment, failed-attempt count
-- [ ] Returns: automatic return after N failed attempts, enforcing terminal events, customer returns (RMA)
+- [x] Automatic return after N failed attempts; journeys end at terminal events
+- [ ] Customer returns after delivery (RMA)
 - [ ] Route planning: auto-generated shipment legs, misroute detection
 - [ ] Automated tests, CI/CD, health checks
 

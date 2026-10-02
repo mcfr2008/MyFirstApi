@@ -1,0 +1,25 @@
+meta {
+  name: Delivered item - scan allowed again
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackingEvents/scan
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "tagCodes": [
+      "{{itemTagCode}}"
+    ],
+    "eventTypeCode": "ARRIVED_AT_HUB",
+    "locationId": {{locationId}}
+  }
+}
+
+assert {
+  res.status: eq 201
+}

@@ -184,4 +184,6 @@ public record CorrectEventResponse(TrackingEventResponse Voided, TrackingEventRe
 
 // Returned by operations that record the same event for many items.
 // OffRouteEvents: how many of them were misrouted (see TrackingEventResponse.OffRouteShipment).
-public record EventsRecordedResponse(string EventTypeCode, int EventsRecorded, int OffRouteEvents = 0);
+// ReturnTrackingNumber: set when this event (a failed delivery) triggered an automatic return to sender.
+public record EventsRecordedResponse(
+    string EventTypeCode, int EventsRecorded, int OffRouteEvents = 0, string? ReturnTrackingNumber = null);

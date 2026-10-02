@@ -1,0 +1,26 @@
+meta {
+  name: Depart shipment B
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{arBShipmentId}}/legs/{{arBLeg1Id}}/depart
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "occurredAt": "{{arBDepartAt}}"
+  }
+}
+
+script:pre-request {
+  bru.setVar("arBDepartAt", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "InTransit"
+}
