@@ -261,7 +261,7 @@ public class ContainerService
             request.Longitude,
             ContainerId: id,
             ReasonCode: request.ReasonCode);
-        await _recorder.AddEventsAsync(items, eventType, context);
+        var events = await _recorder.AddEventsAsync(items, eventType, context);
 
         // The container (and everything nested in it) moves with its contents.
         if (request.LocationId.HasValue)
@@ -275,7 +275,7 @@ public class ContainerService
         }
 
         await Context.SaveChangesAsync();
-        return new EventsRecordedResponse(eventType.Code, items.Count);
+        return new EventsRecordedResponse(eventType.Code, items.Count, events.Count(e => e.OffRouteShipmentId != null));
     }
 
     private async Task<List<Container>> FindChildContainersAsync(List<int>? ids)

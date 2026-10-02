@@ -1,0 +1,27 @@
+meta {
+  name: Auto-route via Phitsanulok
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{mdShipmentId}}/route
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "objective": "Fastest"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.shipment.legs.length: eq 4
+  res.body.shipment.legs[1].destination.id: eq {{rpPlkId}}
+}
+
+docs {
+  Bangna -> Lat Krabang -> Phitsanulok -> Chiang Mai hub -> branch. Nakhon Sawan is not on it.
+}
