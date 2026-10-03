@@ -491,7 +491,7 @@ Open `http://localhost:5106/swagger`, log in with `POST /api/v1/Auth/login`, and
 #### CORS (frontend origins)
 
 Browsers only let a frontend call the API from origins listed in `Cors:AllowedOrigins`.
-- **Development.** `appsettings.Development.json` allows the common dev servers: `http://localhost:3000` (React / Next.js), `:5173` (Vite) and `:4200` (Angular).
+- **Development.** `appsettings.Development.json` allows the common dev servers: `http://localhost:3000` (React / Next.js), `:5173` (Vite) and `:4200` (Angular), plus the Thing-Tag web app ([MyFirstApp](https://github.com/mcfr2008/MyFirstApp)) on `http://localhost:5066` and `https://localhost:7011`.
 - **Other environments.** Set the origins through configuration, for example `Cors__AllowedOrigins__0=https://app.example.com`.
 
 ## Example
