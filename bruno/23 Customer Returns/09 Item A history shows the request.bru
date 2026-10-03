@@ -1,0 +1,22 @@
+meta {
+  name: Item A history shows the request
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/TrackingEvents?trackedItemId={{rmaAItemId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  trackedItemId: {{rmaAItemId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.items[0].eventType.code: eq "RETURN_REQUESTED"
+  res.body.items[0].reason.code: eq "DAMAGED_ON_ARRIVAL"
+  res.body.items[0].note: eq "Corner crushed"
+}

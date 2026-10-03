@@ -1,0 +1,18 @@
+meta {
+  name: 23 Customer Returns
+  seq: 23
+}
+
+auth {
+  mode: inherit
+}
+
+docs {
+  Customer returns (RMA) of delivered items, /api/v1/Returns:
+  Requested -> Approved (return shipment receiver -> sender) -> Received (when it's delivered),
+  or Requested -> Rejected / Cancelled. Each item gets RETURN_REQUESTED with its own reason.
+
+  A Bangkok -> Chiang Mai shipment (no legs, no signature) is delivered first. RMA 1 returns
+  A and B and is auto-routed back over the return lanes from 21; item C goes through
+  reject, cancel, then approve without routing and delivery (Received).
+}

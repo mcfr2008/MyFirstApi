@@ -1,0 +1,26 @@
+meta {
+  name: Create item C
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/TrackedItems
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "RMA C {{runId}}"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("rmaCTag", res.body.tagCode);
+  bru.setVar("rmaCItemId", res.body.id);
+}

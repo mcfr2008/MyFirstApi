@@ -88,24 +88,52 @@ public partial class ShipmentService
             throw Errors.NothingToReturn(shipment.TrackingNumber);
         }
 
-        var start = await ReferenceResolver.ResolveRequiredAsync(_context.Locations.AsNoTracking(),
-            request.LocationId ?? shipment.DestinationLocationId, shipment.DestinationLocationId, "locationId");
-        var now = DateTime.UtcNow;
-        var occurredAt = request.OccurredAt?.UtcDateTime ?? now;
+        var occurredAt = request.OccurredAt?.UtcDateTime ?? DateTime.UtcNow;
+        var route = request.AutoRoute
+            ? new RouteShipmentRequest
+            {
+                Objective = request.Objective,
+                FirstMileMinutes = request.FirstMileMinutes,
+                LastMileMinutes = request.LastMileMinutes
+            }
+            : null;
+        // Staged first: if there's no route back (and it isn't optional), nothing else is staged.
+        var (returnShipment, plan) = await StageReturnShipmentAsync(shipment.Id, items, request.LocationId,
+            occurredAt, request.Note, route, linkAsReturnOf: true, routeIsOptional);
 
-        // Plan first: nothing is staged if there's no route back (unless the route is optional).
+        await RecordForItemsAsync(shipment, items, ReturnedEventCode, returnShipment.OriginLocationId, occurredAt,
+            request.Note, legId: null, isSystemManaged: true, reasonCode: request.ReasonCode);
+
+        if (shipment.Status == ShipmentStatus.InTransit)
+        {
+            shipment.Status = ShipmentStatus.ReturnedToSender;
+        }
+        shipment.UpdatedAt = DateTime.UtcNow;
+
+        return (returnShipment, items.Count, plan);
+    }
+
+    // Stages a Planned shipment that brings items from the original's receiver back to its
+    // sender (no SaveChanges): from startLocationId (default: the original destination) to
+    // the original origin, parties swapped. route != null plans its legs first, so a missing
+    // route fails before anything is staged unless routeIsOptional (then: no legs).
+    // linkAsReturnOf sets ReturnOfShipmentId (return to sender of undelivered items);
+    // customer returns (RMA) link from the return request instead.
+    public async Task<(Shipment ReturnShipment, RoutePlanResponse? Plan)> StageReturnShipmentAsync(
+        int originalShipmentId, IReadOnlyCollection<TrackedItem> items, int? startLocationId, DateTime pickupAt,
+        string? note, RouteShipmentRequest? route, bool linkAsReturnOf, bool routeIsOptional)
+    {
+        var original = await ShipmentsWithDetails().FirstAsync(s => s.Id == originalShipmentId);
+        var start = await ReferenceResolver.ResolveRequiredAsync(_context.Locations.AsNoTracking(),
+            startLocationId ?? original.DestinationLocationId, original.DestinationLocationId, "locationId");
+
         List<ShipmentLegRequest> legs = [];
         RoutePlanResponse? plan = null;
-        if (request.AutoRoute)
+        if (route != null)
         {
             try
             {
-                (legs, plan) = await PlanLegsAsync(start, shipment.OriginLocation, occurredAt, new RouteShipmentRequest
-                {
-                    Objective = request.Objective,
-                    FirstMileMinutes = request.FirstMileMinutes,
-                    LastMileMinutes = request.LastMileMinutes
-                });
+                (legs, plan) = await PlanLegsAsync(start, original.OriginLocation, pickupAt, route);
             }
             catch (ApiException ex) when (routeIsOptional && ex.Definition.Code.StartsWith("ROUTE_"))
             {
@@ -114,42 +142,34 @@ public partial class ShipmentService
             }
         }
 
-        await RecordForItemsAsync(shipment, items, ReturnedEventCode, start.Id, occurredAt, request.Note,
-            legId: null, isSystemManaged: true, reasonCode: request.ReasonCode);
-
-        if (shipment.Status == ShipmentStatus.InTransit)
-        {
-            shipment.Status = ShipmentStatus.ReturnedToSender;
-        }
-        shipment.UpdatedAt = now;
-
+        var now = DateTime.UtcNow;
         var returnShipment = new Shipment
         {
             TrackingNumber = await GenerateTrackingNumberAsync(),
-            Reference = shipment.Reference,
-            ReturnOfShipmentId = shipment.Id,
-            SenderPartyId = shipment.ReceiverPartyId,
-            ReceiverPartyId = shipment.SenderPartyId,
+            Reference = original.Reference,
+            ReturnOfShipmentId = linkAsReturnOf ? original.Id : null,
+            SenderPartyId = original.ReceiverPartyId,
+            ReceiverPartyId = original.SenderPartyId,
             OriginLocationId = start.Id,
-            DestinationLocationId = shipment.OriginLocationId,
+            DestinationLocationId = original.OriginLocationId,
             Status = ShipmentStatus.Planned,
-            CustomsStatus = start.Country != shipment.OriginLocation.Country ? CustomsStatus.Pending : CustomsStatus.NotRequired,
-            PlannedPickupAt = occurredAt,
+            CustomsStatus = start.Country != original.OriginLocation.Country ? CustomsStatus.Pending : CustomsStatus.NotRequired,
+            PlannedPickupAt = pickupAt,
             RequiresSignature = true,
-            Notes = QueryHelpers.NullIfBlank(request.Note),
+            Notes = QueryHelpers.NullIfBlank(note),
             CreatedAt = now,
             UpdatedAt = now,
             CreatedBy = _currentUser.Username
         };
         _context.Shipments.Add(returnShipment);
-        // Added directly: the original is closing in this same save, so the
-        // "item already in an open shipment" check (which reads the database) doesn't apply.
+        // Added directly: for a return to sender the original is closing in this same save,
+        // so the "item already in an open shipment" check (which reads the database)
+        // doesn't apply; callers check open shipments themselves where it matters.
         foreach (var item in items)
         {
             _context.ShipmentItems.Add(new ShipmentItem { Shipment = returnShipment, TrackedItemId = item.Id, AddedAt = now });
         }
-        await ApplyLegsAsync(returnShipment, legs, start.Id, shipment.OriginLocationId);
-
-        return (returnShipment, items.Count, plan);
+        await ApplyLegsAsync(returnShipment, legs, start.Id, original.OriginLocationId);
+        return (returnShipment, plan);
     }
 }

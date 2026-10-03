@@ -1,0 +1,23 @@
+meta {
+  name: Reject it
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Returns/{{rma2Id}}/reject
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reason": "Outside the no-questions return policy for this product"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "Rejected"
+  res.body.decidedBy: isDefined
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Approve without routing
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Returns/{{rma4Id}}/approve
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "autoRoute": false
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.returnShipment.legs.length: eq 0
+  res.body.plan: isNull
+}
+
+script:post-response {
+  bru.setVar("rma4ShipmentId", res.body.returnShipment.id);
+}

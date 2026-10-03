@@ -40,3 +40,4 @@
 \ir 034_tracking_events_off_route.sql
 \ir 035_return_to_sender.sql
 \ir 036_auto_return.sql
+\ir 037_customer_returns.sql

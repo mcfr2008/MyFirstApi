@@ -1,0 +1,20 @@
+meta {
+  name: Approve again (409)
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Returns/{{rma1Id}}/approve
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 409
+  res.body.code: eq "RETURN_REQUEST_STATUS_NOT_ALLOWED"
+}

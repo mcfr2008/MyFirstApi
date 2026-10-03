@@ -1,0 +1,21 @@
+meta {
+  name: Cancel a rejected request (409)
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Returns/{{rma2Id}}/cancel
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reason": "Changed mind"
+  }
+}
+
+assert {
+  res.status: eq 409
+}

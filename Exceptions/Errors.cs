@@ -98,6 +98,22 @@ public static class Errors
     public static readonly ErrorDefinition EmissionFactorOverlapDef = new("EMISSION_FACTOR_OVERLAP", Conflict,
         "{mode} {carrier} already has emission factor {emissionFactor}.", "{mode} {carrier} มีค่าการปล่อยก๊าซ {emissionFactor} อยู่แล้ว");
 
+    // ------------------------------------------------ customer returns (RMA)
+    public static readonly ErrorDefinition ReturnWindowExpiredDef = new("RETURN_WINDOW_EXPIRED", BadRequest,
+        "Shipment {trackingNumber} was delivered on {deliveredAt}; returns are accepted for {days} days.",
+        "Shipment {trackingNumber} ส่งถึงเมื่อ {deliveredAt} รับคืนสินค้าได้ภายใน {days} วัน");
+    public static readonly ErrorDefinition ReturnItemsDuplicatedDef = new("RETURN_ITEMS_DUPLICATED", BadRequest,
+        "Items appear more than once in the request: {items}", "สิ่งของซ้ำกันในคำขอเดียวกัน: {items}");
+    public static readonly ErrorDefinition ReturnItemsNotInShipmentDef = new("RETURN_ITEMS_NOT_IN_SHIPMENT", BadRequest,
+        "Not in shipment {trackingNumber}: {items}", "ไม่ได้อยู่ใน Shipment {trackingNumber}: {items}");
+    public static readonly ErrorDefinition ReturnItemsNotDeliveredDef = new("RETURN_ITEMS_NOT_DELIVERED", BadRequest,
+        "Only delivered items can be returned: {items}", "คืนได้เฉพาะสิ่งของที่ส่งถึงแล้ว: {items}");
+    public static readonly ErrorDefinition ItemsInOpenReturnDef = new("ITEMS_IN_OPEN_RETURN", Conflict,
+        "Items already have an open return request: {items}", "สิ่งของมีคำขอคืนที่ยังไม่ปิดอยู่แล้ว: {items}");
+    public static readonly ErrorDefinition ReturnRequestStatusNotAllowedDef = new("RETURN_REQUEST_STATUS_NOT_ALLOWED", Conflict,
+        "Action '{action}' isn't allowed while the return request is {status} (allowed when: {allowedStatuses}).",
+        "ทำรายการ '{action}' ไม่ได้ขณะที่คำขอคืนอยู่ในสถานะ {status} (ทำได้เมื่อ: {allowedStatuses})");
+
     // --------------------------------------------------------- service areas
     public static readonly ErrorDefinition RouteEndpointNotCoveredDef = new("ROUTE_ENDPOINT_NOT_COVERED", StatusCodes.Status404NotFound,
         "No active service area covers the {end} ({coverage}).", "ไม่มีพื้นที่ให้บริการที่เปิดใช้งานครอบคลุมจุด {end} ({coverage})");
@@ -263,6 +279,17 @@ public static class Errors
         Create(RouteLanesNotConnectedDef, ("origin", origin), ("destination", destination));
     public static ApiException RouteNotFound(string origin, string destination, object objective) =>
         Create(RouteNotFoundDef, ("origin", origin), ("destination", destination), ("objective", objective.ToString()));
+
+    public static ApiException ReturnWindowExpired(string trackingNumber, DateTime deliveredAt, int days) =>
+        Create(ReturnWindowExpiredDef, ("trackingNumber", trackingNumber), ("deliveredAt", deliveredAt.ToString("yyyy-MM-dd")), ("days", days));
+    public static ApiException ReturnItemsDuplicated(List<string> items) => Create(ReturnItemsDuplicatedDef, ("items", items));
+    public static ApiException ReturnItemsNotInShipment(string trackingNumber, List<string> items) =>
+        Create(ReturnItemsNotInShipmentDef, ("trackingNumber", trackingNumber), ("items", items));
+    public static ApiException ReturnItemsNotDelivered(List<string> items) => Create(ReturnItemsNotDeliveredDef, ("items", items));
+    public static ApiException ItemsInOpenReturn(List<string> items) => Create(ItemsInOpenReturnDef, ("items", items));
+    public static ApiException ReturnRequestStatusNotAllowed(string action, object status, IEnumerable<object> allowed) =>
+        Create(ReturnRequestStatusNotAllowedDef, ("action", action), ("status", status.ToString()),
+            ("allowedStatuses", allowed.Select(a => a.ToString()!).ToList()));
 
     public static ApiException ServiceAreaOverlap(string coverage, string serviceArea) =>
         Create(ServiceAreaOverlapDef, ("coverage", coverage), ("serviceArea", serviceArea));

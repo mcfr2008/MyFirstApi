@@ -1,0 +1,21 @@
+meta {
+  name: RMA is Received
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Returns/{{rma4Id}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "Received"
+  res.body.returnShipmentStatus: eq "Delivered"
+}
+
+docs {
+  Derived from the return shipment, so the two can't disagree.
+}

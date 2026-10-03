@@ -1,0 +1,22 @@
+meta {
+  name: Deliver it
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{rmaShipmentId}}/deliver
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "receivedBy": "Receiver"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "Delivered"
+}

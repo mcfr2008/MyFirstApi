@@ -1,0 +1,22 @@
+meta {
+  name: Customer cancels it
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Returns/{{rma3Id}}/cancel
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "reason": "Customer fixed it"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "Cancelled"
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Request C a third time
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Returns
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "shipmentId": {{rmaShipmentId}},
+    "items": [
+      {
+        "tagCode": "{{rmaCTag}}",
+        "reasonCode": "DEFECTIVE",
+        "note": "Stopped working"
+      }
+    ]
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("rma4Id", res.body.id);
+}

@@ -1,0 +1,16 @@
+meta {
+  name: Get by RMA number
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Returns/by-rma/{{rma1Number}}
+  body: none
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.id: eq {{rma1Id}}
+}

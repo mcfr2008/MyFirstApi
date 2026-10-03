@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > Thing-Tag คือระบบติดตามอัจฉริยะที่ออกแบบมาเพื่อเกาะติดทุกการเคลื่อนไหวของสิ่งของทุกประเภท ตั้งแต่ต้นทางจนถึงปลายทางอย่างไร้รอยต่อ มอบประสบการณ์การขนส่งที่โปร่งใสและตรวจสอบได้จริง เหมือนกับระบบโลจิสติกส์มาตรฐานระดับสากล
 
-Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; carbon footprint; route planning; misroute detection; and return to sender (manual and automatic). The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
+Built so far: auth and permissions; master data; tagged items; append-only tracking events; containers/consolidation; multimodal shipments (road, rail, air, sea and courier legs, with customs); proof of delivery; public tracking; idempotency keys for safe retries; service areas and lanes; carbon footprint; route planning; misroute detection; return to sender (manual and automatic); and customer returns (RMA). The legacy `Products` CRUD predates Thing-Tag. For now this project is purely the backend REST API for a separate frontend app, so it serves JSON only (no server-rendered UI). New features should build toward that goal and reuse the existing layering and permission model.
 
 ## Commands
 
@@ -182,7 +182,7 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
   - `ShipmentResponse` adds `ReturnOf`, `ReturnShipment` and `FailedDeliveryAttempts`.
   - The latter two are filled by `EnrichAsync` for both detail and list. Failed attempts are distinct `OccurredAt` of non-voided `DELIVERY_FAILED` events with the shipment's id.
   - The list filter is `isReturn`.
-- **Automatic return.** `ReturnCoreAsync` stages a return without saving; the manual endpoint and `AutoReturnIfLimitReachedAsync` both use it.
+- **Automatic return.** `ReturnCoreAsync` stages a return without saving; the manual endpoint and `AutoReturnIfLimitReachedAsync` both use it. Building the return shipment itself is `StageReturnShipmentAsync` (public, also used by RMA approval).
   - **Trigger.** `RecordEventAsync`, which now loads the shipment with details, calls the auto-return after staging a `DELIVERY_FAILED`, all in the same `SaveChanges`.
   - **Conditions.** The shipment must be InTransit and not itself a return. The limit is `Shipment.MaxDeliveryAttempts ?? Returns:MaxDeliveryAttempts` (default 3), where `0` means never. Attempts are the distinct saved times plus the new one.
   - **The return it creates.** It uses reason `MAX_ATTEMPTS_REACHED` (seeded in `Scripts/036`, allowed only for `RETURNED`) at the attempt time, from the destination.
@@ -190,6 +190,26 @@ The dev PostgreSQL database runs in a Docker container named `postgres-server`, 
   - **Response.** `EventsRecordedResponse.ReturnTrackingNumber` reports the new return.
   - `ShipmentResponse.MaxDeliveryAttempts` is the effective limit (passed into `From`).
 - **Not yet.** RMA isn't supported, and a return can't be undone, since `RETURNED` is system-managed.
+
+### Customer returns (RMA)
+
+- **Where it lives.**
+  - `ReturnsController` and `Services/ReturnRequestService.cs`.
+  - Entities `ReturnRequest` and `ReturnRequestItem` (`Scripts/037`): one reason per item, with `ON DELETE CASCADE` from the request.
+- **Stored vs. shown status.**
+  - Stored: `Requested`, `Approved`, `Rejected`, `Cancelled`.
+  - Derived in the projection and in the `HasEffectiveStatus` filter: `Received` (approved and the return shipment is Delivered) and `Cancelled` (approved and the return shipment is Cancelled). Never store them.
+- **Create.**
+  - The shipment must be Delivered (`requestReturn`), within `Returns:CustomerReturnWindowDays` (default 30, 0 = off).
+  - Items are resolved through `ITrackingEventRecorder.FindItemsAsync`. Each must be in that shipment and have `Status == Delivered`.
+  - No item may be in another open request: Requested, or Approved with a return shipment not yet Delivered/Cancelled.
+  - It records `RETURN_REQUESTED` per (reason, note) group, system-managed and carrying the original `ShipmentId`. That bypasses the journey-ended check, and the recorder validates the reason and note.
+- **Approve.**
+  - It rechecks that items aren't in an open shipment.
+  - It calls `IShipmentService.StageReturnShipmentAsync` with `linkAsReturnOf: false`, so RMA return shipments don't set `ReturnOfShipmentId` (that is for return to sender, and its unique index allows one per shipment). The shipment links back through `ReturnRequest.ReturnShipmentId`, shown as `ShipmentResponse.ReturnRequest`.
+  - It saves the request and the shipment in one `SaveChanges`.
+- **Reject / cancel.** Only while Requested. An approved request is cancelled by cancelling its return shipment.
+- **Journey side effect.** `RETURN_REQUESTED` becomes the item's latest event, so the item no longer counts as "journey ended" for manual scans, even if the request is later rejected.
 
 ### Carbon footprint
 

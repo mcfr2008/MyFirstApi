@@ -1,0 +1,25 @@
+meta {
+  name: Return shipment - no signature needed
+  type: http
+  seq: 25
+}
+
+put {
+  url: {{baseUrl}}/api/v1/Shipments/{{rma4ShipmentId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "senderPartyId": {{receiverPartyId}},
+    "receiverPartyId": {{partyId}},
+    "originLocationId": {{rpCustId}},
+    "destinationLocationId": {{arSenderLocId}},
+    "requiresSignature": false
+  }
+}
+
+assert {
+  res.status: eq 200
+}

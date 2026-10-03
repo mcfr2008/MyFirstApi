@@ -53,6 +53,9 @@ This repository (`MyFirstApi`) is the **backend REST API** for Thing-Tag, built 
   - Failed delivery attempts are counted, and public tracking points to the return shipment.
   - **Automatic return** after N failed attempts (per shipment, default 3).
   - **Journeys end** at `DELIVERED` / `RETURNED`: later scans are rejected until the item joins a new shipment.
+- **Customer returns (RMA)**
+  - The receiver asks to send delivered items back, each item with its own reason. Staff approve or reject the request.
+  - Approval creates an auto-routed return shipment, and the request becomes **Received** when that shipment is delivered back.
 - **Carbon footprint (CO₂e)**
   - Every shipment's greenhouse-gas emissions per leg and in total, following **ISO 14083 / GLEC Framework** (well-to-wheel). The public tracking page shows the total.
 - **Safe retries (idempotency keys)**
@@ -128,6 +131,7 @@ All routes are **versioned**: `/api/v1/...`. Breaking changes will go into `/api
 | Containers | master-data endpoints (below) + `GET /{id}/contents` · `POST /{id}/load` · `/unload` · `/scan` |
 | Shipments | `GET/POST /api/v1/Shipments` · `GET/PUT /{id}` · `GET /by-tracking/{no}` · `PUT /{id}/legs/{legId}` · `POST /{id}/legs/{legId}/depart` · `/arrive` · `GET/POST /{id}/items` · `DELETE /{id}/items/{itemId}` · `POST /{id}/customs` · `/events` · `/deliver` · `/cancel` |
 | Proof of delivery | `POST /api/v1/Shipments/{id}/proof-of-delivery` (multipart) · `GET /api/v1/Shipments/{id}/proof-of-delivery` |
+| Customer returns (RMA) | `GET/POST /api/v1/Returns` · `GET /{id}` · `GET /by-rma/{rmaNumber}` · `POST /{id}/approve` · `/reject` · `/cancel` |
 | Return to sender | `POST /api/v1/Shipments/{id}/return-to-sender` · `GET /api/v1/Shipments?isReturn=true` |
 | Route planning | `POST /api/v1/Routes/plan` · `POST /api/v1/Shipments/{id}/route` · `GET /api/v1/Shipments/{id}/route-check` · `GET /api/v1/Shipments?offRoute=true` · `GET /api/v1/TrackingEvents?offRoute=true` |
 | Carbon footprint | `GET /api/v1/Shipments/{id}/emissions` · master data `EmissionFactors` (below) |
@@ -310,6 +314,33 @@ Return shipments never return automatically, so items can't bounce back and fort
 - `400 NOTHING_TO_RETURN`: everything was delivered.
 - `409 SHIPMENT_STATUS_NOT_ALLOWED`: the shipment is Planned (cancel it instead) or already closed.
 
+## Customer returns (RMA)
+
+A receiver who already has the goods can ask to send them back. The request gets an **RMA number** (e.g. `RMA261003K4Q7XA`) that the customer quotes.
+
+```
+Requested ──approve──▶ Approved (return shipment created) ──return delivered──▶ Received
+    ├──reject──▶ Rejected
+    └──cancel──▶ Cancelled          (approved: cancel the return shipment → Cancelled)
+```
+
+| Step | Endpoint | Rules |
+|---|---|---|
+| Request | `POST /api/v1/Returns` `{ shipmentId, note, items: [{ tagCode \| trackedItemId, reasonCode, note }] }` | Only for a **Delivered** shipment within `Returns:CustomerReturnWindowDays` of delivery (default 30, 0 = no limit). Items must be in that shipment, delivered, and not already in an open return. Each item gets a `RETURN_REQUESTED` event with its own reason. |
+| Approve | `POST /{id}/approve` `{ pickupLocationId, pickupAt, autoRoute, objective, firstMileMinutes, lastMileMinutes }` | Creates the return shipment: receiver → sender, from the receiver's address (or `pickupLocationId`) to the original origin. With `autoRoute` (default) its legs come from the route planner. The shipment shows `returnRequest`. |
+| Reject / Cancel | `POST /{id}/reject` · `/cancel` `{ reason }` | Only while Requested. |
+
+**Return reasons**
+- `DAMAGED_ON_ARRIVAL`, `WRONG_ITEM`, `DEFECTIVE`, `NOT_AS_DESCRIBED` and `NO_LONGER_NEEDED`.
+- `OTHER` is also accepted, with a note.
+
+**Status follows the return shipment.** `Received` and the after-approval `Cancelled` are derived from the return shipment's status, so the two can't disagree. Filter with `GET /Returns?status=Received`, `shipmentId` (original or return) or `trackedItemId`.
+
+**Errors**
+- `400 RETURN_WINDOW_EXPIRED`, `RETURN_ITEMS_NOT_IN_SHIPMENT`, `RETURN_ITEMS_NOT_DELIVERED` and `RETURN_ITEMS_DUPLICATED`.
+- `409 ITEMS_IN_OPEN_RETURN` and `RETURN_REQUEST_STATUS_NOT_ALLOWED`.
+- `409 ITEMS_IN_OPEN_SHIPMENT` (on approve).
+
 ## Carbon footprint
 
 `GET /api/v1/Shipments/{id}/emissions` calculates the shipment's greenhouse-gas emissions with the **ISO 14083 / GLEC Framework** method (well-to-wheel CO₂e):
@@ -414,7 +445,7 @@ export Jwt__Key="<long-random-secret>"
 
 #### 3. Create the schema
 
-The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `036`). Re-running them only applies what's new.
+The database is built from numbered, **idempotent** SQL scripts in `Scripts/` (`001` to `037`). Re-running them only applies what's new.
 
 With `psql` installed on the host:
 
@@ -446,6 +477,7 @@ done
 | `034` | `TrackingEvents.OffRouteShipmentId` (misroute flag) |
 | `035` | Return to sender: `Shipments.ReturnOfShipmentId`, status `ReturnedToSender` |
 | `036` | Automatic return: `Shipments.MaxDeliveryAttempts`, reason `MAX_ATTEMPTS_REACHED` |
+| `037` | Customer returns (RMA): `ReturnRequests`, `ReturnRequestItems`, event `RETURN_REQUESTED`, return reasons |
 
 #### 4. Run
 
@@ -489,7 +521,7 @@ The Bruno collection has complete, working examples of every endpoint, including
 
 ## Testing
 
-API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (391 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
+API tests live in the **[Bruno](https://www.usebruno.com/)** collection in `bruno/` (421 requests, including proof-of-delivery uploads that use the images in `bruno/fixtures/`). They also check error `code`s. The collection passes against both `dotnet run` and `docker compose`:
 
 1. In Bruno, choose **Open Collection** → `bruno/`, then select the **Local** environment.
 2. Run **01 Auth / Login**. It stores the JWT for all other requests.
@@ -562,7 +594,7 @@ Before deploying beyond local development:
 - [x] Misroute detection: off-route scans flagged on record, route check and exception list
 - [x] Return to sender: RETURNED + linked, auto-routed return shipment, failed-attempt count
 - [x] Automatic return after N failed attempts; journeys end at terminal events
-- [ ] Customer returns after delivery (RMA)
+- [x] Customer returns after delivery (RMA): request, approve / reject / cancel, auto-routed return shipment
 - [ ] Route planning: auto-generated shipment legs, misroute detection
 - [ ] Automated tests, CI/CD, health checks
 
