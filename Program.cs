@@ -62,6 +62,7 @@ builder.Services.AddScoped<ILaneService, LaneService>();
 builder.Services.AddScoped<IEmissionFactorService, EmissionFactorService>();
 builder.Services.AddScoped<ICarbonFootprintService, CarbonFootprintService>();
 builder.Services.AddScoped<IRoutePlannerService, RoutePlannerService>();
+builder.Services.AddScoped<IReturnRequestService, ReturnRequestService>();
 builder.Services.AddScoped<IContainerService, ContainerService>();
 builder.Services.AddScoped<IReasonCodeService, ReasonCodeService>();
 builder.Services.AddScoped<ITrackingEventRecorder, TrackingEventRecorder>();

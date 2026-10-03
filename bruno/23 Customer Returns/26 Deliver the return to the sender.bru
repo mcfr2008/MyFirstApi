@@ -1,0 +1,22 @@
+meta {
+  name: Deliver the return to the sender
+  type: http
+  seq: 26
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Shipments/{{rma4ShipmentId}}/deliver
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "receivedBy": "Sender warehouse"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq "Delivered"
+}

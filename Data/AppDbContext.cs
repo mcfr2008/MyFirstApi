@@ -32,6 +32,8 @@ public class AppDbContext : DbContext
     public DbSet<StoredFile> StoredFiles { get; set; }
     public DbSet<ProofOfDelivery> ProofsOfDelivery { get; set; }
     public DbSet<IdempotencyKey> IdempotencyKeys { get; set; }
+    public DbSet<ReturnRequest> ReturnRequests { get; set; }
+    public DbSet<ReturnRequestItem> ReturnRequestItems { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -127,6 +129,27 @@ public class AppDbContext : DbContext
             entity.Property(f => f.GramsCo2ePerTonneKm).HasPrecision(10, 3);
             entity.HasOne(f => f.Carrier).WithMany()
                 .HasForeignKey(f => f.CarrierId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ReturnRequest>(entity =>
+        {
+            entity.HasIndex(r => r.RmaNumber).IsUnique();
+            entity.Property(r => r.Status).HasConversion<string>();
+            entity.HasOne(r => r.Shipment).WithMany()
+                .HasForeignKey(r => r.ShipmentId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(r => r.ReturnShipment).WithMany()
+                .HasForeignKey(r => r.ReturnShipmentId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ReturnRequestItem>(entity =>
+        {
+            entity.HasKey(i => new { i.ReturnRequestId, i.TrackedItemId });
+            entity.HasOne(i => i.ReturnRequest).WithMany(r => r.Items)
+                .HasForeignKey(i => i.ReturnRequestId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(i => i.TrackedItem).WithMany()
+                .HasForeignKey(i => i.TrackedItemId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(i => i.ReasonCode).WithMany()
+                .HasForeignKey(i => i.ReasonCodeId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Container>(entity =>

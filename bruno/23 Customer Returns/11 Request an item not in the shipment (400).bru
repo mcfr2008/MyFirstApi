@@ -1,0 +1,28 @@
+meta {
+  name: Request an item not in the shipment (400)
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Returns
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "shipmentId": {{rmaShipmentId}},
+    "items": [
+      {
+        "tagCode": "{{rmaDTag}}",
+        "reasonCode": "DEFECTIVE"
+      }
+    ]
+  }
+}
+
+assert {
+  res.status: eq 400
+  res.body.code: eq "RETURN_ITEMS_NOT_IN_SHIPMENT"
+}

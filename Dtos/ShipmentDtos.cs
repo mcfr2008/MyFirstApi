@@ -337,6 +337,8 @@ public class ShipmentResponse
     // On a return shipment: the original. On a returned original: its return shipment.
     public ReferenceSummary? ReturnOf { get; set; }
     public ReferenceSummary? ReturnShipment { get; set; }
+    // On a customer-return shipment: the return request (RMA) it carries.
+    public ReferenceSummary? ReturnRequest { get; set; }
     public string? Notes { get; set; }
     public List<ShipmentLegResponse> Legs { get; set; } = new();
     public DateTime CreatedAt { get; set; }

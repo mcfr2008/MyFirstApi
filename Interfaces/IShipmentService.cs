@@ -1,4 +1,5 @@
 using MyFirstApi.Dtos;
+using MyFirstApi.Models;
 
 namespace MyFirstApi.Interfaces;
 
@@ -36,4 +37,10 @@ public interface IShipmentService
 
     // Records RETURNED for undelivered items, closes the shipment and creates a linked return shipment.
     Task<ReturnToSenderResponse?> ReturnToSenderAsync(int id, ReturnToSenderRequest request);
+
+    // Stages (doesn't save) a return shipment receiver -> sender for the given items of the
+    // original; used by return to sender and by approved customer returns (RMA).
+    Task<(Shipment ReturnShipment, RoutePlanResponse? Plan)> StageReturnShipmentAsync(
+        int originalShipmentId, IReadOnlyCollection<TrackedItem> items, int? startLocationId, DateTime pickupAt,
+        string? note, RouteShipmentRequest? route, bool linkAsReturnOf, bool routeIsOptional);
 }

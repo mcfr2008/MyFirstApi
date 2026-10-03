@@ -503,8 +503,17 @@ public partial class ShipmentService : IShipmentService
             .Select(g => new { ShipmentId = g.Key, Count = g.Select(e => e.OccurredAt).Distinct().Count() })
             .ToDictionaryAsync(g => g.ShipmentId, g => g.Count);
 
+        var returnRequests = await _context.ReturnRequests.AsNoTracking()
+            .Where(r => r.ReturnShipmentId != null && ids.Contains(r.ReturnShipmentId.Value))
+            .Select(r => new { ShipmentId = r.ReturnShipmentId!.Value, r.Id, r.RmaNumber })
+            .ToDictionaryAsync(r => r.ShipmentId);
+
         foreach (var response in responses)
         {
+            if (returnRequests.TryGetValue(response.Id, out var returnRequest))
+            {
+                response.ReturnRequest = new ReferenceSummary(returnRequest.Id, returnRequest.RmaNumber, returnRequest.RmaNumber);
+            }
             if (returns.TryGetValue(response.Id, out var returnShipment))
             {
                 response.ReturnShipment = new ReferenceSummary(

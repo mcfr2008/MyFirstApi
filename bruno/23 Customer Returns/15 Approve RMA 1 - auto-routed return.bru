@@ -1,0 +1,35 @@
+meta {
+  name: Approve RMA 1 - auto-routed return
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/v1/Returns/{{rma1Id}}/approve
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+assert {
+  res.status: eq 200
+  res.body.returnRequest.status: eq "Approved"
+  res.body.returnShipment.origin.id: eq {{rpCustId}}
+  res.body.returnShipment.destination.id: eq {{arSenderLocId}}
+  res.body.returnShipment.sender.id: eq {{receiverPartyId}}
+  res.body.returnShipment.legs.length: eq 5
+  res.body.returnShipment.returnRequest.code: eq {{rma1Number}}
+  res.body.returnShipment.returnOf: isNull
+  res.body.returnShipment.itemCount: eq 2
+}
+
+script:post-response {
+  bru.setVar("rma1ReturnShipmentId", res.body.returnShipment.id);
+}
+
+docs {
+  Pickup at the receiver's address -> Chiang Mai branch -> return lanes -> Bangna -> sender.
+}

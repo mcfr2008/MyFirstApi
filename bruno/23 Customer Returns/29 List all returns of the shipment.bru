@@ -1,0 +1,20 @@
+meta {
+  name: List all returns of the shipment
+  type: http
+  seq: 29
+}
+
+get {
+  url: {{baseUrl}}/api/v1/Returns?shipmentId={{rmaShipmentId}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  shipmentId: {{rmaShipmentId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.totalCount: eq 4
+}
